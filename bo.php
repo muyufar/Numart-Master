@@ -173,16 +173,16 @@ $keuntungan = asumsiKeuntungan($totalNilaiBarangJual, $totalNilaiBarang);
 
 
   <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
+  <div class="content-wrapper modern-dashboard">
     <!-- Content Header (Page header) -->
-    <div class="content-header">
+    <div class="content-header modern-header">
       <div class="container-fluid">
         <div class="row mb-2">
           <div class="col-sm-6">
-            <h1 class="m-0 text-dark">Dashboard <b><?= $tipeToko; ?> <?= $dataTokoLogin['toko_kota']; ?></b></h1>
+            <h1 class="m-0 text-dark modern-title">Dashboard <b><?= $tipeToko; ?> <?= $dataTokoLogin['toko_kota']; ?></b></h1>
           </div><!-- /.col -->
           <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-right">
+            <ol class="breadcrumb float-sm-right modern-breadcrumb">
               <li class="breadcrumb-item"><a href="bo">Home</a></li>
               <li class="breadcrumb-item active">Dashboard</li>
             </ol>
@@ -193,10 +193,10 @@ $keuntungan = asumsiKeuntungan($totalNilaiBarangJual, $totalNilaiBarang);
     <!-- /.content-header -->
 
     <!-- Main content -->
-    <section class="content">
+    <section class="content modern-content">
       <div class="container-fluid">
         <!-- Small boxes (Stat box) -->
-        <div class="row">
+        <div class="row modern-stats-row">
           <div class="col-lg-6 col-md-6">
             <!-- small box -->
             <div class="small-box bg-info">

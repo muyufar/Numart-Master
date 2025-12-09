@@ -1,19 +1,19 @@
-<aside class="main-sidebar sidebar-dark-primary elevation-4">
+<aside class="main-sidebar sidebar-dark-primary elevation-4 modern-sidebar">
   <!-- Brand Logo -->
-  <a href="bo" class="brand-link">
+  <a href="bo" class="brand-link modern-brand">
     <img src="dist/img/logobumnupacnu.jpeg" alt="AdminLTE Logo" class="brand-image img-circle elevation-3">
     <span class="brand-text font-weight-light">NUMART</span>
   </a>
 
   <!-- Sidebar -->
-  <div class="sidebar">
+  <div class="sidebar modern-sidebar-content">
     <!-- Sidebar user panel (optional) -->
-    <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+    <div class="user-panel mt-3 pb-3 mb-3 d-flex modern-user-panel">
       <div class="image">
-        <img src="dist/img/avatar5.png" class="img-circle elevation-2" alt="User Image">
+        <img src="dist/img/avatar5.png" class="img-circle elevation-2 modern-avatar" alt="User Image">
       </div>
       <div class="info">
-        <a href="#" class="d-block"><?= $_SESSION['user_nama']; ?></a>
+        <a href="#" class="d-block modern-user-name"><?= $_SESSION['user_nama']; ?></a>
       </div>
     </div>
 
