@@ -146,9 +146,413 @@ if (isset($_POST["updateQtyPenjualan"])) {
 
 
 <style>
+  /* Modern Minimalist Design */
+  :root {
+    --primary-color: #0d9488;
+    --primary-light: #14b8a6;
+    --primary-dark: #0f766e;
+    --accent-color: #f4d03f;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --light-bg: #f8f9fa;
+    --border-color: #e9ecef;
+    --text-muted: #6c757d;
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  body {
+    background-color: #f5f7fa;
+  }
+
+  /* Header Section - Subtle and Soft Design with Better Visibility */
+  .content-header {
+    background: #14b8a6;
+    background-color: #14b8a6;
+    color: #1a1a1a;
+    padding: 1.5rem 0;
+    margin-bottom: 1.5rem;
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.08);
+    border-bottom: 3px solid rgba(20, 184, 166, 0.3);
+  }
+
+  .content-header h1 {
+    color:rgb(255, 255, 255);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    font-size: 1.85rem;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+  }
+
+  .content-header h1 b {
+    background: linear-gradient(135deg, rgba(20, 184, 166, 0.25) 0%, rgba(13, 148, 136, 0.3) 100%);
+    color: #ffda31;
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius);
+    font-weight: 700;
+    border: 2px solid rgba(20, 184, 166, 0.4);
+    display: inline-block;
+    margin-left: 0.5rem;
+    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.15);
+    font-size: 0.95em;
+  }
+
+  .btn-cash-piutang {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  .btn-cash-piutang .btn {
+    border-radius: var(--radius);
+    padding: 0.75rem 1.75rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(20, 184, 166, 0.5);
+    background: white;
+    color: #0d9488;
+    box-shadow: 0 3px 6px rgba(13, 148, 136, 0.2);
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .btn-cash-piutang .btn i {
+    margin-right: 0.5rem;
+    font-size: 1rem;
+  }
+
+  .btn-cash-piutang .btn-primary {
+    background: linear-gradient(
+147deg, rgba(20, 184, 166, 0.2) 0%, rgba(13, 148, 136, 0.25) 100%);
+    border-color: rgb(255 255 255 / 60%);
+    border-color: rgba(20, 184, 166, 0.6);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 4px 8px rgba(13, 148, 136, 0.25);
+  }
+
+  .btn-cash-piutang .btn-default {
+    background: white;
+    border-color: rgba(20, 184, 166, 0.4);
+    color: #495057;
+    font-weight: 600;
+  }
+
+  .btn-cash-piutang .btn-warning {
+    background: linear-gradient(135deg, rgba(244, 208, 63, 0.25) 0%, rgba(241, 196, 15, 0.3) 100%);
+    border-color: rgba(244, 208, 63, 0.6);
+    color: #856404;
+    font-weight: 700;
+    box-shadow: 0 4px 8px rgba(244, 208, 63, 0.25);
+  }
+
+  .btn-cash-piutang .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(13, 148, 136, 0.25);
+    border-color: rgba(20, 184, 166, 0.7);
+  }
+
+  .btn-cash-piutang .btn-primary:hover {
+    background: linear-gradient(135deg, rgba(20, 184, 166, 0.3) 0%, rgba(13, 148, 136, 0.35) 100%);
+    box-shadow: 0 6px 12px rgba(13, 148, 136, 0.3);
+  }
+
+  .btn-cash-piutang .btn-default:hover {
+    background: #f8f9fa;
+    border-color: rgba(20, 184, 166, 0.6);
+    color: #0d9488;
+  }
+
+  .btn-cash-piutang .btn-warning:hover {
+    background: linear-gradient(135deg, rgba(244, 208, 63, 0.35) 0%, rgba(241, 196, 15, 0.4) 100%);
+    box-shadow: 0 6px 12px rgba(244, 208, 63, 0.3);
+  }
+
+  /* Main Card */
+  .card {
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    margin-bottom: 2rem;
+    overflow: hidden;
+  }
+
+  .card-header {
+    background: white;
+    border-bottom: 2px solid var(--border-color);
+    padding: 1.5rem;
+  }
+
+  /* Invoice Section */
+  .card-invoice {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--light-bg);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    border: 2px solid var(--border-color);
+  }
+
+  .card-invoice span {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
+
+  .card-invoice input {
+    border: none;
+    background: transparent;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--primary-dark);
+    flex: 1;
+    padding: 0;
+  }
+
+  /* Search Section */
+  .cari-barang-parent {
+    display: flex;
+    align-items: center;
+  }
+
+  .cari-barang-parent .form-control {
+    border-radius: var(--radius);
+    border: 2px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .cari-barang-parent .form-control:focus {
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+  }
+
+  .cari-barang-parent .btn {
+    border-radius: var(--radius);
+    padding: 0.75rem 1.25rem;
+    height: 100%;
+  }
+
+  /* Table Styling - Match Sidebar Teal Gradient */
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table thead {
+    background: linear-gradient(180deg, #0d9488 0%, #14b8a6 50%, #0f766e 100%);
+    color: white;
+  }
+
+  .table thead th {
+    border: none;
+    padding: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+  }
+
+  .table tbody tr {
+    transition: all 0.2s ease;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.01);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+  }
+
+  .orderan-online-button {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .orderan-online-button .btn {
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
+  }
+
+  .orderan-online-button .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Form Section */
+  .filter-customer {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+  }
+
+  .filter-customer .form-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-customer label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .filter-customer .form-control,
+  .filter-customer .select2-container {
+    border-radius: var(--radius);
+    border: 2px solid var(--border-color);
+    transition: all 0.3s ease;
+  }
+
+  .filter-customer .form-control:focus,
+  .filter-customer .select2-container--focus .select2-selection {
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+  }
+
+  .filter-customer small a {
+    color: #0d9488;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .filter-customer small a:hover {
+    text-decoration: underline;
+  }
+
+  /* Invoice Table - Match Sidebar Teal Gradient */
+  .invoice-table {
+    background: linear-gradient(180deg, #0d9488 0%, #14b8a6 50%, #0f766e 100%);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    color: white;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .invoice-table table {
+    color: white;
+    margin-bottom: 0;
+  }
+
+  .invoice-table td {
+    padding: 0.75rem 0;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .invoice-table td:first-child {
+    font-weight: 600;
+    width: 40%;
+  }
+
+  .invoice-table .table-nominal {
+    text-align: right;
+  }
+
+  .invoice-table input {
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    text-align: right;
+    backdrop-filter: blur(10px);
+  }
+
+  .invoice-table input:focus {
+    background: rgba(255,255,255,0.25);
+    border-color: rgba(255,255,255,0.5);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
+    color: white;
+  }
+
+  .invoice-table input::placeholder {
+    color: rgba(255,255,255,0.7);
+  }
+
+  .invoice-table b {
+    color: var(--accent-color);
+  }
+
+  /* Payment Buttons */
+  .payment {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .payment .btn {
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .payment .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .payment .btn-primary {
+    background: linear-gradient(180deg, #0d9488 0%, #14b8a6 50%, #0f766e 100%);
+    border: none;
+  }
+
+  .payment .btn-danger {
+    background: linear-gradient(135deg, #f5576c 0%, #dc3545 100%);
+    border: none;
+  }
+
+  /* Modal Styling - Match Sidebar Teal Gradient */
+  .modal-content {
+    border-radius: var(--radius-lg);
+    border: none;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .modal-header {
+    background: linear-gradient(180deg, #0d9488 0%, #14b8a6 50%, #0f766e 100%);
+    color: white;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 1.5rem;
+  }
+
+  .modal-header .close {
+    color: white;
+    opacity: 0.9;
+  }
+
+  .modal-header .close:hover {
+    opacity: 1;
+  }
+
+  /* Loading Animation - Match Sidebar Teal Color */
   .container {
     --uib-size: 40px;
-    --uib-color: black;
+    --uib-color: #14b8a6;
     --uib-speed: 2s;
     --uib-bg-opacity: 0;
     height: var(--uib-size);
@@ -198,6 +602,128 @@ if (isset($_POST["updateQtyPenjualan"])) {
       stroke-dashoffset: -100;
     }
   }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .content-header {
+      padding: 1.5rem 0;
+    }
+
+    .btn-cash-piutang {
+      flex-direction: column;
+    }
+
+    .card-header .row {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .payment {
+      flex-direction: column;
+    }
+
+    .payment .btn {
+      width: 100%;
+    }
+  }
+
+  /* Utility Classes */
+  .none {
+    display: none !important;
+  }
+
+  /* Additional Modern Touches */
+  .breadcrumb {
+    background: rgba(255,255,255,0.85);
+    border-radius: var(--radius);
+    padding: 0.6rem 1.2rem;
+    border: 2px solid rgba(20, 184, 166, 0.2);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.1);
+  }
+
+  .breadcrumb a {
+    color: #0d9488;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .breadcrumb a:hover {
+    color: #0f766e;
+    text-decoration: underline;
+  }
+
+  .breadcrumb-item.active {
+    color: #495057;
+    font-weight: 600;
+  }
+
+  .breadcrumb-item + .breadcrumb-item::before {
+    color: #6c757d;
+    font-weight: 600;
+  }
+
+  /* Table empty state */
+  .table tbody tr:empty::after {
+    content: "Tidak ada item dalam keranjang";
+    display: block;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  /* Input number styling */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    opacity: 1;
+  }
+
+  /* Select2 Modern Styling */
+  .select2-container--bootstrap4 .select2-selection {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    min-height: 38px;
+  }
+
+  .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+    line-height: 36px;
+    padding-left: 12px;
+  }
+
+  .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+  }
+
+  /* Smooth transitions */
+  * {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Focus states */
+  .form-control:focus,
+  .select2-container--focus .select2-selection {
+    outline: none;
+  }
+
+  /* Card body padding */
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  /* Better spacing for invoice table */
+  .invoice-table .table tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* Button icon spacing */
+  .btn i {
+    margin-right: 0.5rem;
+  }
+
+  .btn-cash-piutang .btn i {
+    margin-right: 0.5rem;
+  }
 </style>
 
 
@@ -209,7 +735,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
     <div class="container-fluid">
       <div class="row mb-2">
         <div class="col-sm-8">
-          <h1>Transaksi Kasir <b style="color: #007bff; ">Customer <?= $nameTipeHarga; ?></b></h1>
+          <h1>Transaksi Kasir <b> Customer <?= $nameTipeHarga; ?></b></h1>
           <div class="btn-cash-piutang">
             <?php
             // Ambil data dari URL Untuk memberikan kondisi transaksi Cash atau Piutang
@@ -221,13 +747,21 @@ if (isset($_POST["updateQtyPenjualan"])) {
             ?>
 
             <?php if ($r == 1) : ?>
-              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>" class="btn btn-default">Cash</a>
-              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>&r=MQ==" class="btn btn-primary">Piutang</a>
+              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>" class="btn btn-default">
+                <i class="fa fa-money"></i> Cash
+              </a>
+              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>&r=MQ==" class="btn btn-primary">
+                <i class="fa fa-credit-card"></i> Piutang
+              </a>
             <?php else : ?>
-              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>" class="btn btn-primary">Cash</a>
-              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>&r=MQ==" class="btn btn-default">Piutang</a>
+              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>" class="btn btn-primary">
+                <i class="fa fa-money"></i> Cash
+              </a>
+              <a href="beli-langsung?customer=<?= $_GET['customer']; ?>&r=MQ==" class="btn btn-default">
+                <i class="fa fa-credit-card"></i> Piutang
+              </a>
             <?php endif; ?>
-            <!-- <a class="btn btn-danger" data-toggle="modal" href='#modal-id-draft' data-backdrop="static">Pending</a> -->
+            <a class="btn btn-danger" data-toggle="modal" href='#modal-id-draft' data-backdrop="static">Pending</a>
             <!-- <a class="btn btn-info" href="beli-langsung-transfer?customer=<?= $_GET['customer']; ?>" data-backdrop="static">Transfer</a> -->
             <div class="modal fade" id="modal-id-draft">
               <div class="modal-dialog modal-lg">
@@ -332,12 +866,12 @@ if (isset($_POST["updateQtyPenjualan"])) {
           <div class="row">
             <div class="col-md-8 col-lg-8">
               <div class="card-invoice">
-                <span>No. Invoice: </span>
+                <span><i class="fa fa-file-text-o"></i> No. Invoice: </span>
                 <?php
                 $today = date("Ymdis");
                 $di = $today . $jmlPenjualan1 . $userId ;
                 ?>
-                <input type="text" name="invoicing" id="invoicing" value="<?= $di  ?>">
+                <input type="text" name="invoicing" id="invoicing" value="<?= $di  ?>" readonly>
               </div>
             </div>
             <div class="col-md-4 col-lg-4">
@@ -348,11 +882,11 @@ if (isset($_POST["updateQtyPenjualan"])) {
                       <input type="hidden" name="keranjang_id_kasir" value="<?= $userId; ?>">
                       <input type="hidden" name="keranjang_cabang" value="<?= $sessionCabang; ?>">
                       <input type="hidden" name="tipe_harga" value="<?= $tipeHarga; ?>">
-                      <input type="text" class="form-control" autofocus="" name="inputbarcode" placeholder="Barcode / Kode Barang" required="">
+                      <input type="text" class="form-control" autofocus="" name="inputbarcode" placeholder="🔍 Scan Barcode / Kode Barang" required="">
                     </form>
                   </div>
                   <div class="col-2">
-                    <a class="btn btn-primary" title="Cari Produk" data-toggle="modal" id="cari-barang" href='#modal-id'>
+                    <a class="btn btn-primary" title="Cari Produk" data-toggle="modal" id="cari-barang" href='#modal-id' style="width: 100%;">
                       <i class="fa fa-search"></i>
                     </a>
                   </div>
@@ -467,7 +1001,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                 <div class="col-md-6 col-lg-7">
                   <div class="filter-customer">
                     <div class="form-group">
-                      <label>Tipe Customer</label>
+                      <label><i class="fa fa-users"></i> Tipe Customer</label>
                       <select class="form-control select2bs4 pilihan-marketplace" name="tipe_customer" id="tipe_customer">
                         <option value="0" <?= $tipeHarga == 0 ? 'selected' : null ?>>Umum</option>
                         <option value="1" <?= $tipeHarga == 1 ? 'selected' : null ?>>Member Retail</option>
@@ -475,7 +1009,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                       </select>
                     </div>
                     <div class="form-group">
-                      <label>Customer <b style="color: #007bff; "><?= $nameTipeHarga; ?></b></label>
+                      <label><i class="fa fa-user"></i> Customer <b style="color: #0d9488;"><?= $nameTipeHarga; ?></b></label>
                       <select class="form-control select2bs4 pilihan-marketplace" required="" name="invoice_customer">
                         <!-- <option selected="selected" value="">Pilih Customer</option> -->
 
@@ -499,7 +1033,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
 
                       </select>
                       <small>
-                        <a href="customer-add">Tambah Customer <i class="fa fa-plus"></i></a>
+                        <a href="customer-add"><i class="fa fa-plus-circle"></i> Tambah Customer Baru</a>
                       </small>
                     </div>
 
@@ -507,7 +1041,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                     <span id="beli-langsung-marketplace"></span>
 
                     <div class="form-group">
-                      <label>Tipe Pembayaran</label>
+                      <label><i class="fa fa-credit-card"></i> Tipe Pembayaran</label>
                       <select class="form-control" required="" name="invoice_tipe_transaksi" id="payment-type">
                         <option selected="selected" value="0">Cash</option>
                         <option value="1">Transfer</option>
@@ -535,7 +1069,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                     </div>
 
                     <div class="form-group">
-                      <label>Kurir</label>
+                      <label><i class="fa fa-truck"></i> Kurir</label>
                       <select class="form-control select2bs4" required="" name="invoice_kurir">
                         <?php if ($dataTokoLogin['toko_ongkir'] > 0) { ?>
                           <option selected="selected" value="">-- Pilih Kurir --</option>
@@ -555,7 +1089,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                     <!-- kondisi jika memilih piutang -->
                     <?php if ($r == 1) : ?>
                       <div class="form-group">
-                        <label style="color: red;">Jatuh Tempo</label>
+                        <label style="color: #f5576c;"><i class="fa fa-calendar"></i> Jatuh Tempo</label>
                         <input type="date" name="invoice_piutang_jatuh_tempo" class="form-control" required="" value="<?= date("Y-m-d"); ?>">
                       </div>
                     <?php else : ?>
@@ -814,10 +1348,10 @@ if (isset($_POST["updateQtyPenjualan"])) {
                     $jmlDataSn = mysqli_num_rows($dataSn);
                     ?>
                     <?php if ($jmlDataSn < 1) { ?>
-                      <!-- <button class="btn btn-danger" type="submit" name="updateStockDraft">Transaksi Pending <i class="fa fa-file-o"></i></button> -->
+                      <button class="btn btn-danger" type="submit" name="updateStockDraft">Transaksi Pending <i class="fa fa-file-o"></i></button>
                       <button class="btn btn-primary updateStok" type="submit" name="updateStock">Simpan Payment <i class="fa fa-shopping-cart"></i></button>
                     <?php } else { ?>
-                      <!-- <a href="#!" class="btn btn-default jmlDataSn" type="" name="">Transaksi Pending <i class="fa fa-file-o"></i></a> -->
+                      <a href="#!" class="btn btn-default jmlDataSn" type="" name="">Transaksi Pending <i class="fa fa-file-o"></i></a>
                       <a href="#!" class="btn btn-default jmlDataSn" type="" name="">Simpan Payment <i class="fa fa-shopping-cart"></i></a>
                     <?php } ?>
 

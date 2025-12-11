@@ -301,33 +301,33 @@ if ($cabang == 0) {
     'nilai' => $bagi_hasil_cbg2
   ];
 
-  // Hitung laba bersih Numart Tegalrejo (Cabang 5)
+    // Hitung laba bersih Numart Tegalrejo (Cabang 5)
   $q_laba_bersih_cbg5 = mysqli_query($conn, "
-    SELECT 
-      (SUM(invoice_sub_total) 
-       - SUM(invoice_total_beli)
-       - COALESCE((
-          SELECT SUM(CAST(REPLACE(REPLACE(l2.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) 
-          FROM laba l2 
+  SELECT 
+    (SUM(invoice_sub_total) 
+     - SUM(invoice_total_beli)
+     - COALESCE((
+        SELECT SUM(CAST(REPLACE(REPLACE(l2.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) 
+        FROM laba l2 
           LEFT JOIN laba_kategori lk2 ON CAST(l2.kategori AS UNSIGNED) = lk2.id
-          WHERE l2.tipe = 1 
-          AND l2.cabang = 5 
-          AND l2.date >= '$tanggal_awal 00:00:00'
-          AND l2.date <= '$tanggal_akhir 23:59:59'
+        WHERE l2.tipe = 1 
+        AND l2.cabang = 5 
+        AND l2.date >= '$tanggal_awal 00:00:00'
+        AND l2.date <= '$tanggal_akhir 23:59:59'
           AND lk2.kategori = 'beban'
-        ),0)
-      ) AS laba_bersih_cabang5
-    FROM invoice
-    WHERE invoice_cabang = 5
-    AND invoice_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
-  ");
-  $laba_bersih_cbg5 = mysqli_fetch_assoc($q_laba_bersih_cbg5)['laba_bersih_cabang5'] ?? 0;
-  $bagi_hasil_cbg5 = $laba_bersih_cbg5 * 0.45;
-  $pendapatan_lain_bagi_hasil += $bagi_hasil_cbg5;
-  $pendapatan_lain_detail[] = [
-    'nama' => 'Bagi Hasil Numart Tegalrejo (45%)',
-    'nilai' => $bagi_hasil_cbg5
-  ];
+      ),0)
+    ) AS laba_bersih_cabang5
+  FROM invoice
+  WHERE invoice_cabang = 5
+  AND invoice_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+");
+$laba_bersih_cbg5 = mysqli_fetch_assoc($q_laba_bersih_cbg5)['laba_bersih_cabang5'] ?? 0;
+$bagi_hasil_cbg5 = $laba_bersih_cbg5 * 0.45;
+$pendapatan_lain_bagi_hasil += $bagi_hasil_cbg5;
+$pendapatan_lain_detail[] = [
+  'nama' => 'Bagi Hasil Numart Tegalrejo (45%)',
+  'nilai' => $bagi_hasil_cbg5
+];
 }
 
 /* -------------------------------------------
@@ -706,7 +706,7 @@ if ($persediaan_akhir > 0) {
             <button type="button" class="btn btn-info btn-sm ml-1" onclick="window.print()">
               <i class="fas fa-print"></i> Print
             </button>
-          </div>
+        </div>
         </div>
         <div class="card-body" id="laporan-content">
 
@@ -1057,8 +1057,8 @@ if ($persediaan_akhir > 0) {
         <div class="card-header d-flex justify-content-between align-items-center">
           <div>
             <h3 class="card-title mb-0">Laporan Neraca</h3>
-            <small>Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></small>
-          </div>
+          <small>Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></small>
+        </div>
           <div class="card-tools">
             <button type="button" class="btn btn-light btn-sm" onclick="exportNeracaExcel()">
               <i class="fas fa-file-excel text-success"></i> Excel
