@@ -1462,9 +1462,17 @@ function updateStock($data)
 			
 			// Query untuk mendapatkan saldo saat ini dengan kategori_name = 2 atau kategori = '2' dan cabang = 0
 			if ($kategori_name_column_exists) {
-				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
+				if ($cabang_column_exists) {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
+				} else {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' LIMIT 1";
+				}
 			} else {
-				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '2' AND cabang = 0 LIMIT 1";
+				if ($cabang_column_exists) {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '2' AND cabang = 0 LIMIT 1";
+				} else {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '2' LIMIT 1";
+				}
 			}
 			
 			$result_saldo = mysqli_query($conn, $query_saldo);
@@ -1476,9 +1484,17 @@ function updateStock($data)
 				
 				// Update saldo dengan kategori_name = 2 atau kategori = '2' dan cabang = 0
 				if ($kategori_name_column_exists) {
-					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
+					if ($cabang_column_exists) {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
+					} else {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' LIMIT 1";
+					}
 				} else {
-					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '2' AND cabang = 0 LIMIT 1";
+					if ($cabang_column_exists) {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '2' AND cabang = 0 LIMIT 1";
+					} else {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '2' LIMIT 1";
+					}
 				}
 				
 				mysqli_query($conn, $update_saldo_query);
@@ -1518,9 +1534,17 @@ function updateStock($data)
 			
 			// Query untuk mendapatkan saldo saat ini dengan kategori_name = 1 atau kategori = '1' dan cabang = cabang toko
 			if ($kategori_name_column_exists) {
-				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '1' AND cabang = $invoice_cabang LIMIT 1";
+				if ($cabang_column_exists) {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '1' AND cabang = $invoice_cabang LIMIT 1";
+				} else {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '1' LIMIT 1";
+				}
 			} else {
-				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '1' AND cabang = $invoice_cabang LIMIT 1";
+				if ($cabang_column_exists) {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '1' AND cabang = $invoice_cabang LIMIT 1";
+				} else {
+					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '1' LIMIT 1";
+				}
 			}
 			
 			$result_saldo = mysqli_query($conn, $query_saldo);
@@ -1532,9 +1556,17 @@ function updateStock($data)
 				
 				// Update saldo dengan kategori_name = 1 atau kategori = '1' dan cabang = cabang toko
 				if ($kategori_name_column_exists) {
-					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '1' AND cabang = $invoice_cabang LIMIT 1";
+					if ($cabang_column_exists) {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '1' AND cabang = $invoice_cabang LIMIT 1";
+					} else {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '1' LIMIT 1";
+					}
 				} else {
-					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '1' AND cabang = $invoice_cabang LIMIT 1";
+					if ($cabang_column_exists) {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '1' AND cabang = $invoice_cabang LIMIT 1";
+					} else {
+						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '1' LIMIT 1";
+					}
 				}
 				
 				mysqli_query($conn, $update_saldo_query);
