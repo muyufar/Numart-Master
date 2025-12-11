@@ -1447,6 +1447,119 @@ function updateStock($data)
 
 
 		mysqli_query($conn, "DELETE FROM keranjang WHERE keranjang_id_kasir = $kik");
+		
+		// Update saldo laba_kategori jika pembayaran Transfer
+		if ($invoice_tipe_transaksi == 1) { // 1 = Transfer
+			// Cek apakah kolom cabang ada di table laba_kategori
+			$check_cabang_column = "SHOW COLUMNS FROM laba_kategori LIKE 'cabang'";
+			$cabang_column_result = mysqli_query($conn, $check_cabang_column);
+			$cabang_column_exists = ($cabang_column_result && mysqli_num_rows($cabang_column_result) > 0);
+			
+			// Cek apakah kolom kategori_name ada di table laba_kategori
+			$check_kategori_name_column = "SHOW COLUMNS FROM laba_kategori LIKE 'kategori_name'";
+			$kategori_name_column_result = mysqli_query($conn, $check_kategori_name_column);
+			$kategori_name_column_exists = ($kategori_name_column_result && mysqli_num_rows($kategori_name_column_result) > 0);
+			
+			// Query untuk mendapatkan saldo saat ini dengan kategori_name = 2 atau kategori = '2' dan cabang = 0
+			if ($kategori_name_column_exists) {
+				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
+			} else {
+				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '2' AND cabang = 0 LIMIT 1";
+			}
+			
+			$result_saldo = mysqli_query($conn, $query_saldo);
+			if ($result_saldo && mysqli_num_rows($result_saldo) > 0) {
+				// Data sudah ada, update saldo
+				$row_saldo = mysqli_fetch_assoc($result_saldo);
+				$saldo_sekarang = floatval($row_saldo['saldo']);
+				$saldo_baru = $saldo_sekarang + $invoice_sub_total;
+				
+				// Update saldo dengan kategori_name = 2 atau kategori = '2' dan cabang = 0
+				if ($kategori_name_column_exists) {
+					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
+				} else {
+					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '2' AND cabang = 0 LIMIT 1";
+				}
+				
+				mysqli_query($conn, $update_saldo_query);
+			} else {
+				// Data belum ada, insert baru
+				$saldo_baru = $invoice_sub_total;
+				
+				if ($kategori_name_column_exists) {
+					if ($cabang_column_exists) {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, cabang, saldo) VALUES ('2', 0, $saldo_baru)";
+					} else {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, saldo) VALUES ('2', $saldo_baru)";
+					}
+				} else {
+					if ($cabang_column_exists) {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori, cabang, saldo) VALUES ('2', 0, $saldo_baru)";
+					} else {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori, saldo) VALUES ('2', $saldo_baru)";
+					}
+				}
+				
+				mysqli_query($conn, $insert_saldo_query);
+			}
+		}
+		
+		// Update saldo laba_kategori jika pembayaran cash
+		if ($invoice_tipe_transaksi == 0) { // 0 = Cash
+			// Cek apakah kolom cabang ada di table laba_kategori
+			$check_cabang_column = "SHOW COLUMNS FROM laba_kategori LIKE 'cabang'";
+			$cabang_column_result = mysqli_query($conn, $check_cabang_column);
+			$cabang_column_exists = ($cabang_column_result && mysqli_num_rows($cabang_column_result) > 0);
+			
+			// Cek apakah kolom kategori_name ada di table laba_kategori
+			$check_kategori_name_column = "SHOW COLUMNS FROM laba_kategori LIKE 'kategori_name'";
+			$kategori_name_column_result = mysqli_query($conn, $check_kategori_name_column);
+			$kategori_name_column_exists = ($kategori_name_column_result && mysqli_num_rows($kategori_name_column_result) > 0);
+			
+			// Query untuk mendapatkan saldo saat ini dengan kategori_name = 1 atau kategori = '1' dan cabang = cabang toko
+			if ($kategori_name_column_exists) {
+				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '1' AND cabang = $invoice_cabang LIMIT 1";
+			} else {
+				$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '1' AND cabang = $invoice_cabang LIMIT 1";
+			}
+			
+			$result_saldo = mysqli_query($conn, $query_saldo);
+			if ($result_saldo && mysqli_num_rows($result_saldo) > 0) {
+				// Data sudah ada, update saldo
+				$row_saldo = mysqli_fetch_assoc($result_saldo);
+				$saldo_sekarang = floatval($row_saldo['saldo']);
+				$saldo_baru = $saldo_sekarang + $invoice_sub_total;
+				
+				// Update saldo dengan kategori_name = 1 atau kategori = '1' dan cabang = cabang toko
+				if ($kategori_name_column_exists) {
+					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '1' AND cabang = $invoice_cabang LIMIT 1";
+				} else {
+					$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '1' AND cabang = $invoice_cabang LIMIT 1";
+				}
+				
+				mysqli_query($conn, $update_saldo_query);
+			} else {
+				// Data belum ada, insert baru
+				$saldo_baru = $invoice_sub_total;
+				
+				if ($kategori_name_column_exists) {
+					if ($cabang_column_exists) {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, cabang, saldo) VALUES ('1', $invoice_cabang, $saldo_baru)";
+					} else {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, saldo) VALUES ('1', $saldo_baru)";
+					}
+				} else {
+					if ($cabang_column_exists) {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori, cabang, saldo) VALUES ('1', $invoice_cabang, $saldo_baru)";
+					} else {
+						$insert_saldo_query = "INSERT INTO laba_kategori (kategori, saldo) VALUES ('1', $saldo_baru)";
+					}
+				}
+				
+				mysqli_query($conn, $insert_saldo_query);
+			}
+		}
+		
 		return mysqli_affected_rows($conn);
 	}
 }

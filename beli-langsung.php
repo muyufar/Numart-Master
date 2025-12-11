@@ -227,7 +227,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
               <a href="beli-langsung?customer=<?= $_GET['customer']; ?>" class="btn btn-primary">Cash</a>
               <a href="beli-langsung?customer=<?= $_GET['customer']; ?>&r=MQ==" class="btn btn-default">Piutang</a>
             <?php endif; ?>
-            <a class="btn btn-danger" data-toggle="modal" href='#modal-id-draft' data-backdrop="static">Pending</a>
+            <!-- <a class="btn btn-danger" data-toggle="modal" href='#modal-id-draft' data-backdrop="static">Pending</a> -->
             <!-- <a class="btn btn-info" href="beli-langsung-transfer?customer=<?= $_GET['customer']; ?>" data-backdrop="static">Transfer</a> -->
             <div class="modal fade" id="modal-id-draft">
               <div class="modal-dialog modal-lg">
@@ -514,6 +514,26 @@ if (isset($_POST["updateQtyPenjualan"])) {
                       </select>
                     </div>
 
+                    <!-- QRIS Display untuk Transfer -->
+                    <div class="form-group" id="qris-display" style="display: none;">
+                      <!-- <label>QRIS Pembayaran</label> -->
+                      <?php
+                      // Ambil QRIS dari tabel toko berdasarkan toko_cabang
+                      $tokoQris = isset($dataTokoLogin['toko_qris']) ? $dataTokoLogin['toko_qris'] : '';
+                      if (!empty($tokoQris)) {
+                        // Jika QRIS adalah URL gambar
+                        if (filter_var($tokoQris, FILTER_VALIDATE_URL) || strpos($tokoQris, 'http') === 0) {
+                          echo '<img src="' . htmlspecialchars($tokoQris) . '" alt="QRIS" class="img-fluid" style="max-width: 300px; height: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">';
+                        } else {
+                          // Jika QRIS adalah path file lokal
+                          echo '<img src="' . htmlspecialchars($tokoQris) . '" alt="QRIS" class="img-fluid" style="max-width: 300px; height: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">';
+                        }
+                      } else {
+                        echo '<p class="text-muted">QRIS belum diatur untuk toko ini.</p>';
+                      }
+                      ?>
+                    </div>
+
                     <div class="form-group">
                       <label>Kurir</label>
                       <select class="form-control select2bs4" required="" name="invoice_kurir">
@@ -794,10 +814,10 @@ if (isset($_POST["updateQtyPenjualan"])) {
                     $jmlDataSn = mysqli_num_rows($dataSn);
                     ?>
                     <?php if ($jmlDataSn < 1) { ?>
-                      <button class="btn btn-danger" type="submit" name="updateStockDraft">Transaksi Pending <i class="fa fa-file-o"></i></button>
+                      <!-- <button class="btn btn-danger" type="submit" name="updateStockDraft">Transaksi Pending <i class="fa fa-file-o"></i></button> -->
                       <button class="btn btn-primary updateStok" type="submit" name="updateStock">Simpan Payment <i class="fa fa-shopping-cart"></i></button>
                     <?php } else { ?>
-                      <a href="#!" class="btn btn-default jmlDataSn" type="" name="">Transaksi Pending <i class="fa fa-file-o"></i></a>
+                      <!-- <a href="#!" class="btn btn-default jmlDataSn" type="" name="">Transaksi Pending <i class="fa fa-file-o"></i></a> -->
                       <a href="#!" class="btn btn-default jmlDataSn" type="" name="">Simpan Payment <i class="fa fa-shopping-cart"></i></a>
                     <?php } ?>
 
@@ -1226,10 +1246,11 @@ if (isset($_POST["updateQtyPenjualan"])) {
       if (this.value == 1) {
         $('#create-midtrans').prop('disabled', false).show();
         $(".updateStok").prop('disabled', true).hide();
+        $('#qris-display').show(); // Tampilkan QRIS saat Transfer dipilih
       } else {
         $('.updateStok').prop('disabled', false).show();
         $("#create-midtrans").prop('disabled', true).hide();
-
+        $('#qris-display').hide(); // Sembunyikan QRIS saat Cash dipilih
       }
     })
 
