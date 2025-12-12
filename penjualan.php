@@ -51,6 +51,7 @@
                   <th style="width: 6%;">No.</th>
                   <th style="width: 12%;">Invoice</th>
                   <th style="width: 15%;">Tanggal Transaksi</th>
+                  <th style="width: 10%;">Jenis Transaksi</th>
                   <th>Customer</th>
                   <th>Kasir</th>
                   <th>Sub Total</th>
@@ -83,9 +84,13 @@
              "columnDefs": 
              [
               {
-                "targets": 5,
+                "targets": 6,
                   "render": $.fn.dataTable.render.number( '.', '', '', 'Rp. ' )
                  
+              },
+              {
+                "targets": 3,
+                "className": "text-center"
               },
               {
                 "targets": -1,

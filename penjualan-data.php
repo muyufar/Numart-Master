@@ -23,6 +23,7 @@ $table = <<<EOT
       a.invoice_kasir, 
       a.invoice_customer,
       a.invoice_piutang,
+      a.invoice_tipe_transaksi,
       b.customer_id,
       b.customer_nama,
       c.user_id,
@@ -43,9 +44,22 @@ $columns = array(
     array( 'db' => 'invoice_id', 'dt'         => 0 ),
     array( 'db' => 'penjualan_invoice', 'dt'  => 1 ), 
     array( 'db' => 'invoice_tgl',  'dt'       => 2 ), 
-    array( 'db' => 'customer_nama',      'dt' => 3 ),
-    array( 'db' => 'user_nama',      'dt'     => 4 ), 
-    array( 'db' => 'invoice_sub_total',  'dt' => 5 )
+    array( 
+        'db' => 'invoice_tipe_transaksi', 
+        'dt' => 3,
+        'formatter' => function( $d, $row ) {
+            if ($d === 0 || $d === '0') {
+                return 'Cash';
+            } else if ($d === 1 || $d === '1') {
+                return 'Transfer';
+            } else {
+                return '-';
+            }
+        }
+    ),
+    array( 'db' => 'customer_nama',      'dt' => 4 ),
+    array( 'db' => 'user_nama',      'dt'     => 5 ), 
+    array( 'db' => 'invoice_sub_total',  'dt' => 6 )
 ); 
 
 // Include SQL query processing class 
