@@ -9,8 +9,10 @@ function query($query)
 	global $conn;
 	$result = mysqli_query($conn, $query);
 	$rows = [];
-	while ($row = mysqli_fetch_assoc($result)) {
-		$rows[] = $row;
+	if ($result && mysqli_num_rows($result) > 0) {
+		while ($row = mysqli_fetch_assoc($result)) {
+			$rows[] = $row;
+		}
 	}
 	return $rows;
 }
@@ -1348,22 +1350,29 @@ function hapusKeranjangDraft($id)
 function updateStock($data)
 {
 	global $conn;
+	
+	// Validasi data yang diperlukan
+	if (empty($data['barang_ids']) || !is_array($data['barang_ids'])) {
+		error_log("Error: barang_ids is empty or not an array");
+		return 0;
+	}
+	
 	$id                  		= $data['barang_ids'];
-	$keranjang_qty       		= $data['keranjang_qty'];
-	$keranjang_qty_view       	= $data['keranjang_qty_view'];
-	$keranjang_konversi_isi     = $data['keranjang_konversi_isi'];
-	$keranjang_satuan           = $data['keranjang_satuan'];
-	$keranjang_harga_beli       = $data['keranjang_harga_beli'];
-	$keranjang_harga			= $data['keranjang_harga'];
-	$keranjang_harga_parent		= $data['keranjang_harga_parent'];
-	$keranjang_harga_edit		= $data['keranjang_harga_edit'];
-	$keranjang_id_kasir  		= $data['keranjang_id_kasir'];
-	$penjualan_invoice   		= $data['penjualan_invoice'];
-	$keranjang_barang_option_sn = $data['keranjang_barang_option_sn'];
-	$keranjang_barang_sn_id     = $data['keranjang_barang_sn_id'];
-	$keranjang_sn               = $data['keranjang_sn'];
-	$invoice_customer_category2 = $data['invoice_customer_category2'];
-	$penjualan_cabang        	= $data['penjualan_cabang'];
+	$keranjang_qty       		= $data['keranjang_qty'] ?? [];
+	$keranjang_qty_view       	= $data['keranjang_qty_view'] ?? [];
+	$keranjang_konversi_isi     = $data['keranjang_konversi_isi'] ?? [];
+	$keranjang_satuan           = $data['keranjang_satuan'] ?? [];
+	$keranjang_harga_beli       = $data['keranjang_harga_beli'] ?? [];
+	$keranjang_harga			= $data['keranjang_harga'] ?? [];
+	$keranjang_harga_parent		= $data['keranjang_harga_parent'] ?? [];
+	$keranjang_harga_edit		= $data['keranjang_harga_edit'] ?? [];
+	$keranjang_id_kasir  		= $data['keranjang_id_kasir'] ?? [];
+	$penjualan_invoice   		= $data['penjualan_invoice'] ?? [];
+	$keranjang_barang_option_sn = $data['keranjang_barang_option_sn'] ?? [];
+	$keranjang_barang_sn_id     = $data['keranjang_barang_sn_id'] ?? [];
+	$keranjang_sn               = $data['keranjang_sn'] ?? [];
+	$invoice_customer_category2 = $data['invoice_customer_category2'] ?? [];
+	$penjualan_cabang        	= $data['penjualan_cabang'] ?? [];
 
 	$kik                 		= $data['kik'];
 	$penjualan_invoice2  		= $data['penjualan_invoice2'];
@@ -1415,7 +1424,23 @@ function updateStock($data)
 		$invoice_ekspedisi   = 0;
 		$invoice_no_resi     = "-";
 	}
+	// Pastikan $keranjang_id_kasir adalah array
+	if (!is_array($keranjang_id_kasir)) {
+		error_log("Error: keranjang_id_kasir is not an array. Value: " . print_r($keranjang_id_kasir, true));
+		return 0;
+	}
+	
 	$jumlah = count($keranjang_id_kasir);
+	
+	// Validasi jumlah item
+	if ($jumlah == 0) {
+		error_log("Error: No items in cart. keranjang_id_kasir count: " . $jumlah);
+		error_log("Data received: " . print_r($data, true));
+		return 0;
+	}
+	
+	// Debug: Log jumlah item
+	error_log("Processing " . $jumlah . " items for invoice: " . $penjualan_invoice2);
 
 	if ($invoice_piutang == 0 && $invoice_bayar < $invoice_sub_total) {
 		echo "
@@ -1424,6 +1449,7 @@ function updateStock($data)
 				document.location.href = '';
 			</script>
 		";
+		exit();
 	} elseif ($invoice_piutang == 1 && $invoice_bayar >= $invoice_sub_total) {
 		echo "
 			<script>
@@ -1431,18 +1457,123 @@ function updateStock($data)
 				document.location.href = '';
 			</script>
 		";
+		exit();
 	} else {
+		// Escape semua nilai untuk keamanan
+		$penjualan_invoice2 = mysqli_real_escape_string($conn, $penjualan_invoice2);
+		$penjualan_invoice_count = mysqli_real_escape_string($conn, $penjualan_invoice_count);
+		$invoice_tgl = mysqli_real_escape_string($conn, $invoice_tgl);
+		$invoice_customer = mysqli_real_escape_string($conn, $invoice_customer);
+		$invoice_customer_category = mysqli_real_escape_string($conn, $invoice_customer_category);
+		$invoice_kurir = mysqli_real_escape_string($conn, $invoice_kurir);
+		$invoice_tipe_transaksi = mysqli_real_escape_string($conn, $invoice_tipe_transaksi);
+		$invoice_total_beli = floatval($invoice_total_beli);
+		$invoice_total = floatval($invoice_total);
+		$invoice_ongkir = floatval($invoice_ongkir);
+		$invoice_diskon = floatval($invoice_diskon);
+		$invoice_sub_total = floatval($invoice_sub_total);
+		$invoice_bayar = floatval($invoice_bayar);
+		$invoice_kembali = floatval($invoice_kembali);
+		$kik = intval($kik);
+		$invoice_date = mysqli_real_escape_string($conn, $invoice_date);
+		$invoice_date_year_month = mysqli_real_escape_string($conn, $invoice_date_year_month);
+		$invoice_marketplace = mysqli_real_escape_string($conn, $invoice_marketplace);
+		$invoice_ekspedisi = mysqli_real_escape_string($conn, $invoice_ekspedisi);
+		$invoice_no_resi = mysqli_real_escape_string($conn, $invoice_no_resi);
+		$invoice_piutang = intval($invoice_piutang);
+		$invoice_piutang_dp = floatval($invoice_piutang_dp);
+		$invoice_piutang_jatuh_tempo = mysqli_real_escape_string($conn, $invoice_piutang_jatuh_tempo);
+		$invoice_piutang_lunas = intval($invoice_piutang_lunas);
+		$invoice_cabang = intval($invoice_cabang);
+		
 		// query insert invoice
 		$query1 = "INSERT INTO invoice VALUES ('', '$penjualan_invoice2', '$penjualan_invoice_count', '$invoice_tgl', '$invoice_customer', '$invoice_customer_category', '$invoice_kurir', '1','2', '$invoice_tipe_transaksi', '$invoice_total_beli', '$invoice_total', '$invoice_ongkir', '$invoice_diskon', '$invoice_sub_total', '$invoice_bayar', '$invoice_kembali', '$kik', '$invoice_date', '$invoice_date_year_month', ' ', ' ', '$invoice_total_beli', '$invoice_total', '$invoice_ongkir', '$invoice_sub_total', '$invoice_bayar', '$invoice_kembali', '$invoice_marketplace', '$invoice_ekspedisi', '$invoice_no_resi', '-', '$invoice_piutang', '$invoice_piutang_dp', '$invoice_piutang_jatuh_tempo', '$invoice_piutang_lunas', 0, '$invoice_cabang')";
-		// var_dump($query1); die();
-		mysqli_query($conn, $query1);
+		
+		// Debug: Log query sebelum eksekusi
+		error_log("Inserting invoice: " . $penjualan_invoice2);
+		
+		$result_invoice = mysqli_query($conn, $query1);
+		if (!$result_invoice) {
+			$error_msg = mysqli_error($conn);
+			error_log("Error inserting invoice: " . $error_msg);
+			error_log("Query: " . $query1);
+			error_log("Invoice data: " . print_r([
+				'invoice' => $penjualan_invoice2,
+				'customer' => $invoice_customer,
+				'total' => $invoice_sub_total,
+				'bayar' => $invoice_bayar
+			], true));
+			return 0;
+		}
+		
+		// Debug: Log success
+		error_log("Invoice inserted successfully: " . $penjualan_invoice2);
 
 		for ($x = 0; $x < $jumlah; $x++) {
-			$query = "INSERT INTO penjualan VALUES ('', '$id[$x]', '$id[$x]', '$keranjang_qty_view[$x]', '$keranjang_qty[$x]', '$keranjang_konversi_isi[$x]', '$keranjang_satuan[$x]','$keranjang_harga_beli[$x]', '$keranjang_harga[$x]', '$keranjang_harga_parent[$x]', '$keranjang_harga_edit[$x]', '$keranjang_id_kasir[$x]', '$penjualan_invoice[$x]' , '$penjualan_date[$x]', '$invoice_date_year_month', '$keranjang_qty_view[$x]', '$keranjang_qty_view[$x]', '$keranjang_barang_option_sn[$x]', '$keranjang_barang_sn_id[$x]', '$keranjang_sn[$x]', '$invoice_customer_category2[$x]', '$penjualan_cabang[$x]')";
-			$query2 = "INSERT INTO terlaris VALUES ('', '$id[$x]', '$keranjang_qty[$x]')";
+			// Escape semua nilai untuk keamanan
+			$barang_id = intval($id[$x]);
+			$qty_view = floatval($keranjang_qty_view[$x]);
+			$qty = floatval($keranjang_qty[$x]);
+			$konversi_isi = floatval($keranjang_konversi_isi[$x]);
+			$satuan = intval($keranjang_satuan[$x]);
+			$harga_beli = floatval($keranjang_harga_beli[$x]);
+			$harga = floatval($keranjang_harga[$x]);
+			$harga_parent = floatval($keranjang_harga_parent[$x]);
+			$harga_edit = floatval($keranjang_harga_edit[$x]);
+			$id_kasir = intval($keranjang_id_kasir[$x]);
+			$penjualan_inv = mysqli_real_escape_string($conn, $penjualan_invoice[$x]);
+			$penjualan_dt = mysqli_real_escape_string($conn, $penjualan_date[$x]);
+			$date_ym = mysqli_real_escape_string($conn, $invoice_date_year_month);
+			$option_sn = intval($keranjang_barang_option_sn[$x]);
+			$sn_id = !empty($keranjang_barang_sn_id[$x]) ? intval($keranjang_barang_sn_id[$x]) : 0;
+			$sn = mysqli_real_escape_string($conn, $keranjang_sn[$x] ?? '');
+			$customer_cat = intval($invoice_customer_category2[$x]);
+			$cabang = intval($penjualan_cabang[$x]);
+			
+			$query = "INSERT INTO penjualan VALUES ('', '$barang_id', '$barang_id', '$qty_view', '$qty', '$konversi_isi', '$satuan','$harga_beli', '$harga', '$harga_parent', '$harga_edit', '$id_kasir', '$penjualan_inv' , '$penjualan_dt', '$date_ym', '$qty_view', '$qty_view', '$option_sn', '$sn_id', '$sn', '$customer_cat', '$cabang')";
+			$query2 = "INSERT INTO terlaris VALUES ('', '$barang_id', '$qty')";
 
-			mysqli_query($conn, $query);
-			mysqli_query($conn, $query2);
+			$result_penjualan = mysqli_query($conn, $query);
+			if (!$result_penjualan) {
+				$error_msg = mysqli_error($conn);
+				error_log("Error inserting penjualan: " . $error_msg);
+				error_log("Query: " . $query);
+				return 0;
+			}
+			
+			$result_terlaris = mysqli_query($conn, $query2);
+			if (!$result_terlaris) {
+				$error_msg = mysqli_error($conn);
+				error_log("Error inserting terlaris: " . $error_msg);
+			}
+			
+			// Update stok barang setelah penjualan
+			$barang_id = $id[$x];
+			$qty_terjual = $keranjang_qty[$x] * $keranjang_konversi_isi[$x];
+			
+			// Ambil stok saat ini
+			$query_stock = "SELECT barang_stock, barang_terjual FROM barang WHERE barang_id = $barang_id";
+			$result_stock = mysqli_query($conn, $query_stock);
+			if ($result_stock && mysqli_num_rows($result_stock) > 0) {
+				$row_stock = mysqli_fetch_assoc($result_stock);
+				$barang_stock_sekarang = floatval($row_stock['barang_stock']);
+				$barang_terjual_sekarang = floatval($row_stock['barang_terjual']);
+				
+				// Kurangi stok dan tambahkan ke terjual
+				$barang_stock_baru = $barang_stock_sekarang - $qty_terjual;
+				$barang_terjual_baru = $barang_terjual_sekarang + $qty_terjual;
+				
+				// Update stok barang
+				$query_update_stock = "UPDATE barang SET barang_stock = $barang_stock_baru, barang_terjual = $barang_terjual_baru WHERE barang_id = $barang_id";
+				mysqli_query($conn, $query_update_stock);
+			}
+			
+			// Update status barang_sn jika menggunakan SN
+			if ($keranjang_barang_option_sn[$x] > 0 && !empty($keranjang_barang_sn_id[$x])) {
+				$barang_sn_id = $keranjang_barang_sn_id[$x];
+				$query_update_sn = "UPDATE barang_sn SET barang_sn_status = 2 WHERE barang_sn_id = $barang_sn_id";
+				mysqli_query($conn, $query_update_sn);
+			}
 		}
 
 
@@ -1450,30 +1581,8 @@ function updateStock($data)
 		
 		// Update saldo laba_kategori jika pembayaran Transfer
 		if ($invoice_tipe_transaksi == 1) { // 1 = Transfer
-			// Cek apakah kolom cabang ada di table laba_kategori
-			$check_cabang_column = "SHOW COLUMNS FROM laba_kategori LIKE 'cabang'";
-			$cabang_column_result = mysqli_query($conn, $check_cabang_column);
-			$cabang_column_exists = ($cabang_column_result && mysqli_num_rows($cabang_column_result) > 0);
-			
-			// Cek apakah kolom kategori_name ada di table laba_kategori
-			$check_kategori_name_column = "SHOW COLUMNS FROM laba_kategori LIKE 'kategori_name'";
-			$kategori_name_column_result = mysqli_query($conn, $check_kategori_name_column);
-			$kategori_name_column_exists = ($kategori_name_column_result && mysqli_num_rows($kategori_name_column_result) > 0);
-			
-			// Query untuk mendapatkan saldo saat ini dengan kategori_name = 2 atau kategori = '2' dan cabang = 0
-			if ($kategori_name_column_exists) {
-				if ($cabang_column_exists) {
-					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
-				} else {
-					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' LIMIT 1";
-				}
-			} else {
-				if ($cabang_column_exists) {
-					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '2' AND cabang = 0 LIMIT 1";
-				} else {
-					$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori = '2' LIMIT 1";
-				}
-			}
+			// Query untuk mendapatkan saldo saat ini dengan kategori_name = 2 dan cabang = 0
+			$query_saldo = "SELECT saldo, id FROM laba_kategori WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
 			
 			$result_saldo = mysqli_query($conn, $query_saldo);
 			if ($result_saldo && mysqli_num_rows($result_saldo) > 0) {
@@ -1482,40 +1591,13 @@ function updateStock($data)
 				$saldo_sekarang = floatval($row_saldo['saldo']);
 				$saldo_baru = $saldo_sekarang + $invoice_sub_total;
 				
-				// Update saldo dengan kategori_name = 2 atau kategori = '2' dan cabang = 0
-				if ($kategori_name_column_exists) {
-					if ($cabang_column_exists) {
-						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
-					} else {
-						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' LIMIT 1";
-					}
-				} else {
-					if ($cabang_column_exists) {
-						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '2' AND cabang = 0 LIMIT 1";
-					} else {
-						$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori = '2' LIMIT 1";
-					}
-				}
-				
+				// Update saldo dengan kategori_name = 2 dan cabang = 0
+				$update_saldo_query = "UPDATE laba_kategori SET saldo = $saldo_baru WHERE kategori_name = '2' AND cabang = 0 LIMIT 1";
 				mysqli_query($conn, $update_saldo_query);
 			} else {
 				// Data belum ada, insert baru
 				$saldo_baru = $invoice_sub_total;
-				
-				if ($kategori_name_column_exists) {
-					if ($cabang_column_exists) {
-						$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, cabang, saldo) VALUES ('2', 0, $saldo_baru)";
-					} else {
-						$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, saldo) VALUES ('2', $saldo_baru)";
-					}
-				} else {
-					if ($cabang_column_exists) {
-						$insert_saldo_query = "INSERT INTO laba_kategori (kategori, cabang, saldo) VALUES ('2', 0, $saldo_baru)";
-					} else {
-						$insert_saldo_query = "INSERT INTO laba_kategori (kategori, saldo) VALUES ('2', $saldo_baru)";
-					}
-				}
-				
+				$insert_saldo_query = "INSERT INTO laba_kategori (kategori_name, cabang, saldo) VALUES ('2', 0, $saldo_baru)";
 				mysqli_query($conn, $insert_saldo_query);
 			}
 		}
@@ -1592,8 +1674,10 @@ function updateStock($data)
 			}
 		}
 		
-		return mysqli_affected_rows($conn);
+		// Return 1 jika berhasil (karena invoice sudah di-insert)
+		return 1;
 	}
+	return 0;
 }
 
 function updateStockDraft($data)

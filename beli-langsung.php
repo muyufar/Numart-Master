@@ -47,34 +47,85 @@ if (isset($_POST["inputbarcode"])) {
 
 error_reporting(0);
 // Insert Ke keranjang
-$inv = $_POST["penjualan_invoice2"];
-if (isset($_POST["updateStock"])) {
-  // var_dump($_POST);
+$inv = $_POST["penjualan_invoice2"] ?? '';
+if (isset($_POST["updateStock"]) && !empty($inv)) {
+  // Debug: Log data yang diterima
+  error_log("updateStock called with invoice: " . $inv);
+  error_log("POST data keys: " . implode(", ", array_keys($_POST)));
+  
   $sql = mysqli_query($conn, "SELECT * FROM invoice WHERE penjualan_invoice='$inv' && invoice_cabang = '$sessionCabang' ") or die(mysqli_error($conn));
 
   $hasilquery = mysqli_num_rows($sql);
 
   if ($hasilquery == 0) {
     // cek apakah data berhasil di tambahkan atau tidak
-    if (updateStock($_POST) > 0) {
-      echo "
-          <script>
-            document.location.href = 'invoice?no=" . $inv . "';
-          </script>
-        ";
+    $result = updateStock($_POST);
+    
+    // Cek apakah invoice sudah berhasil dibuat (double check)
+    $sql_check = mysqli_query($conn, "SELECT * FROM invoice WHERE penjualan_invoice='$inv' && invoice_cabang = '$sessionCabang' ");
+    $invoice_exists = mysqli_num_rows($sql_check);
+    
+    // Debug: Tampilkan error jika ada
+    if ($result == 0 && $invoice_exists == 0) {
+      $error_msg = mysqli_error($conn);
+      if (!empty($error_msg)) {
+        echo "<script>alert('Error: " . addslashes($error_msg) . "');</script>";
+      }
+    }
+    
+    if ($result > 0 || $invoice_exists > 0) {
+      // Redirect ke invoice setelah payment berhasil
+      ?>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta http-equiv="refresh" content="0;url=invoice?no=<?= $inv ?>">
+      </head>
+      <body>
+        <script>
+          window.location.href = 'invoice?no=<?= $inv ?>';
+        </script>
+        <p>Redirecting... <a href="invoice?no=<?= $inv ?>">Click here if not redirected</a></p>
+      </body>
+      </html>
+      <?php
+      exit;
     } else {
+      // Debug: Tampilkan detail error
+      $error_msg = mysqli_error($conn);
+      $debug_info = "Invoice: " . $inv . "\n";
+      $debug_info .= "Result: " . $result . "\n";
+      $debug_info .= "Invoice exists: " . $invoice_exists . "\n";
+      if (!empty($error_msg)) {
+        $debug_info .= "Error: " . $error_msg . "\n";
+      }
+      error_log("Transaction failed: " . $debug_info);
+      
       echo "
           <script>
-            alert('Transaksi Gagal !!');
+            alert('Transaksi Gagal !!\\n\\n" . addslashes($debug_info) . "');
+            window.location.href = '';
           </script>
         ";
+      exit;
     }
   } else {
-    echo "
-        <script>
-          document.location.href = 'invoice?no=" . $inv . "';
-        </script>
-      ";
+    // Invoice sudah ada, langsung redirect
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta http-equiv="refresh" content="0;url=invoice?no=<?= $inv ?>">
+    </head>
+    <body>
+      <script>
+        window.location.href = 'invoice?no=<?= $inv ?>';
+      </script>
+      <p>Redirecting... <a href="invoice?no=<?= $inv ?>">Click here if not redirected</a></p>
+    </body>
+    </html>
+    <?php
+    exit;
   }
 }
 
@@ -325,13 +376,33 @@ if (isset($_POST["updateQtyPenjualan"])) {
     gap: 0.5rem;
   }
 
+  .cari-barang-parent .row {
+    margin: 0;
+    width: 100%;
+  }
+
+  .cari-barang-parent .col-10,
+  .cari-barang-parent .col-2 {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .cari-barang-parent .col-10 {
+    padding-right: 0.5rem;
+  }
+
+  .cari-barang-parent form {
+    margin: 0;
+  }
+
   .cari-barang-parent .form-control {
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
-    padding: 0.625rem 1rem;
+    padding: 0.5rem 0.75rem;
     transition: all 0.2s ease;
     background: #ffffff;
-    font-size: 0.875rem;
+    font-size: 1rem;
+    font-weight: 400;
   }
 
   .cari-barang-parent .form-control:focus {
@@ -353,10 +424,17 @@ if (isset($_POST["updateQtyPenjualan"])) {
     transition: all 0.2s ease;
     color: #ffffff;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .cari-barang-parent .btn:hover {
     background: var(--primary-dark);
+  }
+
+  .cari-barang-parent .btn i {
+    color: #ffffff !important;
   }
 
   /* Table Styling - Clean Professional */
@@ -1128,7 +1206,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                   </div>
                   <div class="col-2">
                     <a class="btn btn-primary" title="Cari Produk" data-toggle="modal" id="cari-barang" href='#modal-id' style="width: 100%;">
-                      <i class="fa fa-search"></i>
+                      <i class="fa fa-search text-white"></i>
                     </a>
                   </div>
                 </div>
@@ -2056,119 +2134,18 @@ if (isset($_POST["updateQtyPenjualan"])) {
     })
 
     $('#payment-type').change(function() {
-      console.log('hgello');
       if (this.value == 1) {
-        $('#create-midtrans').prop('disabled', false).show();
-        $(".updateStok").prop('disabled', true).hide();
+        // Transfer: Tampilkan QRIS, tombol Simpan Payment tetap aktif
         $('#qris-display').show(); // Tampilkan QRIS saat Transfer dipilih
+        $('.updateStok').prop('disabled', false).show(); // Pastikan tombol Simpan Payment aktif
+        $("#create-midtrans").prop('disabled', true).hide(); // Sembunyikan tombol Buat Pesanan
       } else {
+        // Cash: Sembunyikan QRIS, tombol Simpan Payment tetap aktif
         $('.updateStok').prop('disabled', false).show();
         $("#create-midtrans").prop('disabled', true).hide();
         $('#qris-display').hide(); // Sembunyikan QRIS saat Cash dipilih
       }
     })
-
-    $('#create-midtrans').on('click', function(e) {
-      e.preventDefault();
-      const type = $("#payment-type").val()
-      if (type === "1") {
-        let formData = {};
-        const items = [];
-        $(".items").each(function() {
-          items.push(JSON.parse($(this).val()));
-        });
-
-        let gross_amount = 0;
-        items.forEach(element => {
-          gross_amount += element.price * element.quantity;
-        });
-
-        const dataStok = {};
-        $.each($("#form-main").serializeArray(), function(_, {
-          name,
-          value
-        }) {
-          // Skip fields with name starting with "items["
-          if (name.startsWith("items[")) {
-            return; // Skip this iteration
-          }
-
-          const [key, index] = name.split("[");
-          if (index) {
-            dataStok[key] = dataStok[key] || {};
-            dataStok[key][index.replace("]", "")] = value;
-          } else {
-            dataStok[key] = value;
-          }
-        });
-
-        const data = {
-          transaction: {
-            invoice: $("[name=invoicing]").val(),
-            gross_amount: gross_amount
-          },
-          customer: $("[name=invoice_customer]").val(),
-          items: items,
-          updateStok: dataStok
-        };
-
-        $.ajax({
-          type: 'POST',
-          url: 'https://api.numartmagelang.com/api/midtrans/payment/create',
-          data: JSON.stringify(data),
-          contentType: 'application/json',
-          beforeSend: function(request) {
-
-            $('#loaders-midtrans').html(`
-                                <div class="d-flex justify-content-center align-items-center" style="width:100%;min-height:500px;">
-                                  <svg
-                                    class="container"
-                                    viewBox="0 0 40 40"
-                                    height="40"
-                                    width="40">
-                                    <circle
-                                      class="track"
-                                      cx="20"
-                                      cy="20"
-                                      r="17.5"
-                                      pathlength="100"
-                                      stroke-width="5px"
-                                      fill="none" />
-                                    <circle
-                                      class="car"
-                                      cx="20"
-                                      cy="20"
-                                      r="17.5"
-                                      pathlength="100"
-                                      stroke-width="5px"
-                                      fill="none" />
-                                  </svg>
-                                </div>
-                              `)
-            $('[name="updateStock"]').prop('disabled', true);
-            $('#see-invoice').prop('disabled', true);
-          },
-          success: function(response) {
-            // $('#loaders-midtrans').html(`<iframe id="snap-midtrans" src="${response?.data?.redirect_url}" width="100%" height="500px"></iframe>`);
-            const invoiceId = $('#invoicing').val();
-            const invoiceUrl = `invoice?no=${invoiceId}`;
-            const newTab = window.open(invoiceUrl, '_blank');
-            if (response?.data?.redirect_url) {
-              newTab.location.href = response.data.redirect_url;
-            }
-            newTab.focus();
-            window.location.href = invoiceUrl;
-
-            $('[name="updateStock"]').prop('disabled', false);
-            $('#see-invoice').prop('disabled', false);
-          },
-          error: function(response) {
-            $('[name="updateStock"]').prop('disabled', true);
-            alert("Error: " + response.responseJSON.message);
-          }
-        });
-      }
-    });
   });
 </script>
 

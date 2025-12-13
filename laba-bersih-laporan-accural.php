@@ -361,7 +361,7 @@ $q_kategori_neraca = mysqli_query($conn, "
     COALESCE(lk.saldo, 0) AS saldo_awal
   FROM laba_kategori lk
   WHERE lk.cabang = '$cabang_escaped'
-  ORDER BY lk.kategori, lk.name
+  ORDER BY id ASC
 ");
 
 // Check for query errors

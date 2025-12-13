@@ -6,14 +6,17 @@ include '_sidebar.php';
 
 <?php
 // ambil data di URL
-$id = $_GET['no'];
+$id = $_GET['no'] ?? '';
 
-// query data mahasiswa berdasarkan id
-$invoice = query("SELECT * FROM invoice WHERE penjualan_invoice = '$id' && invoice_cabang = '$sessionCabang'")[0];
+// query data invoice berdasarkan id
+$invoiceData = query("SELECT * FROM invoice WHERE penjualan_invoice = '$id' && invoice_cabang = '$sessionCabang'");
 
-if ($invoice == null) {
-  header("location: penjualan");
+if (empty($invoiceData) || !isset($invoiceData[0])) {
+  echo "<script>document.location.href = 'penjualan';</script>";
+  exit;
 }
+
+$invoice = $invoiceData[0];
 ?>
 
 <div class="content-wrapper">
@@ -51,7 +54,7 @@ if ($invoice == null) {
               <div class="col-12">
                 <h4>
                   <i class="fas fa-globe"></i> No. Invoice: <?= $id; ?>
-                  <small class="float-right">Tanggal: <?= $invoice['invoice_tgl']; ?></small>
+                  <small class="float-right">Tanggal: <?= $invoice['invoice_tgl'] ?? '-'; ?></small>
                 </h4>
               </div>
               <!-- /.col -->
@@ -59,17 +62,24 @@ if ($invoice == null) {
             <!-- info row -->
             <?php
             $toko = query("SELECT * FROM toko WHERE toko_cabang = '$sessionCabang'");
+            $toko_nama = '';
+            $toko_kota = '';
+            $toko_tlpn = '';
+            $toko_wa = '';
+            $toko_email = '';
+            $toko_alamat = '';
+            if (!empty($toko)) {
+              foreach ($toko as $row) {
+                $toko_nama   = $row['toko_nama'] ?? '';
+                $toko_kota   = $row['toko_kota'] ?? '';
+                $toko_tlpn   = $row['toko_tlpn'] ?? '';
+                $toko_wa     = $row['toko_wa'] ?? '';
+                $toko_email  = $row['toko_email'] ?? '';
+                $toko_alamat = $row['toko_alamat'] ?? '';
+                break;
+              }
+            }
             ?>
-            <?php foreach ($toko as $row) : ?>
-              <?php
-              $toko_nama   = $row['toko_nama'];
-              $toko_kota   = $row['toko_kota'];
-              $toko_tlpn   = $row['toko_tlpn'];
-              $toko_wa     = $row['toko_wa'];
-              $toko_email  = $row['toko_email'];
-              $toko_alamat = $row['toko_alamat'];
-              ?>
-            <?php endforeach; ?>
             <div class="row invoice-info">
               <div class="col-sm-4 invoice-col">
                 <h4><b>Dari</b></h4>
@@ -80,12 +90,18 @@ if ($invoice == null) {
                   Email: <?= $toko_email; ?><br>
 
                   <?php
-                  $kasir = $invoice['invoice_kasir'];
-                  $dataKasir = query("SELECT * FROM user WHERE user_id = $kasir");
+                  $kasir = $invoice['invoice_kasir'] ?? 0;
+                  $ksrDetail = '-';
+                  if ($kasir > 0) {
+                    $dataKasir = query("SELECT * FROM user WHERE user_id = $kasir");
+                    if (!empty($dataKasir)) {
+                      foreach ($dataKasir as $ksr) {
+                        $ksrDetail = $ksr['user_nama'] ?? '-';
+                        break;
+                      }
+                    }
+                  }
                   ?>
-                  <?php foreach ($dataKasir as $ksr) : ?>
-                    <?php $ksrDetail = $ksr['user_nama']; ?>
-                  <?php endforeach; ?>
 
                   <b>Kasir: </b><?= $ksrDetail; ?>
                 </address>
@@ -96,30 +112,39 @@ if ($invoice == null) {
                 <h4><b>Pembeli</b></h4>
                 <address>
                   <?php
-                  $customer = $invoice['invoice_customer'];
-                  $dataCustomer = query("SELECT * FROM customer WHERE customer_id = $customer");
+                  $customer = $invoice['invoice_customer'] ?? 0;
+                  $ctrId = 0;
+                  $ctrNama = 'Customer Umum';
+                  $ctrAlamat = '-';
+                  $ctrEmail = '-';
+                  $ctrTlpn = '-';
+                  
+                  if ($customer > 0) {
+                    $dataCustomer = query("SELECT * FROM customer WHERE customer_id = $customer");
+                    if (!empty($dataCustomer)) {
+                      foreach ($dataCustomer as $ctr) {
+                        $ctrId     = $ctr['customer_id'] ?? 0;
+                        $ctrNama   = $ctr['customer_nama'] ?? 'Customer Umum';
+                        $ctrAlamat = $ctr['customer_alamat'] ?? '-';
+                        $ctrEmail  = $ctr['customer_email'] ?? '-';
+                        $ctrTlpn   = $ctr['customer_tlpn'] ?? '-';
+                        break;
+                      }
+                    }
+                  }
                   ?>
-                  <?php foreach ($dataCustomer as $ctr) : ?>
-                    <?php
-                    $ctrId     = $ctr['customer_id'];
-                    $ctrNama   = $ctr['customer_nama'];
-                    $ctrAlamat = $ctr['customer_alamat'];
-                    $ctrEmail  = $ctr['customer_email'];
-                    $ctrTlpn   = $ctr['customer_tlpn'];
-                    ?>
-                  <?php endforeach; ?>
 
                   <strong><?= $ctrNama; ?></strong><br>
                   <?php
                   if ($ctrId == 1) {
-                    echo "No. Invoice Marketplace: " . $invoice['invoice_marketplace'];
+                    echo "No. Invoice Marketplace: " . ($invoice['invoice_marketplace'] ?? '-');
                   }
                   ?>
 
                   <?= $ctrAlamat; ?><br>
                   Tlpn/wa:
                   <?php
-                  if ($ctrTlpn == null) {
+                  if ($ctrTlpn == null || $ctrTlpn == '-') {
                     echo "-";
                   } else {
                     echo ($ctrTlpn);
@@ -129,7 +154,7 @@ if ($invoice == null) {
                   <br>
                   Email:
                   <?php
-                  if ($ctrEmail == null) {
+                  if ($ctrEmail == null || $ctrEmail == '-') {
                     echo "-";
                   } else {
                     echo ($ctrEmail);
@@ -139,11 +164,15 @@ if ($invoice == null) {
                   <br>
                   <b>Nama Kurir: </b>
                   <?php
-                  $kurir = $invoice['invoice_kurir'];
+                  $kurir = $invoice['invoice_kurir'] ?? 0;
 
                   if ($kurir > 0) {
-                    $dataKurir = query("SELECT * FROM user WHERE user_id = $kurir")[0];
-                    echo $dataKurir['user_nama'];
+                    $dataKurir = query("SELECT * FROM user WHERE user_id = $kurir");
+                    if (!empty($dataKurir) && isset($dataKurir[0])) {
+                      echo $dataKurir[0]['user_nama'] ?? '-';
+                    } else {
+                      echo "-";
+                    }
                   } else {
                     echo "-";
                   }
@@ -153,9 +182,9 @@ if ($invoice == null) {
                   <br>
                   <b>Tipe Pembayaran: </b>
                   <?php
-                  $tipeTransaksi = $invoice['invoice_tipe_transaksi'];
+                  $tipeTransaksi = $invoice['invoice_tipe_transaksi'] ?? 0;
 
-                  if ($tipeTransaksi > 0) {
+                  if ($tipeTransaksi == 1) {
                     echo "Transfer";
                   } else {
                     echo "Cash";
@@ -169,14 +198,19 @@ if ($invoice == null) {
                 <?php if ($ctrId == 1) { ?>
                   <h4><b>Ekspedisi & No. Resi</b></h4>
                   <?php
-                  $ekspedisi = $invoice['invoice_ekspedisi'];
+                  $ekspedisi = $invoice['invoice_ekspedisi'] ?? 0;
+                  $ed = '-';
 
-                  $ekspedisiData = mysqli_query($conn, "select ekspedisi_nama from ekspedisi where ekspedisi_id = $ekspedisi ");
-                  $ed = mysqli_fetch_array($ekspedisiData);
-                  $ed = $ed['ekspedisi_nama'];
+                  if ($ekspedisi > 0) {
+                    $ekspedisiData = mysqli_query($conn, "select ekspedisi_nama from ekspedisi where ekspedisi_id = $ekspedisi ");
+                    if ($ekspedisiData && mysqli_num_rows($ekspedisiData) > 0) {
+                      $edRow = mysqli_fetch_array($ekspedisiData);
+                      $ed = $edRow['ekspedisi_nama'] ?? '-';
+                    }
+                  }
                   ?>
                   Ekspedisi: <?= $ed; ?><br>
-                  No. Resi: <?= $invoice['invoice_no_resi']; ?>
+                  No. Resi: <?= $invoice['invoice_no_resi'] ?? '-'; ?>
                 <?php } ?>
 
               </div>
@@ -251,24 +285,24 @@ if ($invoice == null) {
                   <table class="table">
                     <tr>
                       <th style="width:50%">Sub Total:</th>
-                      <td>Rp. <?= number_format($invoice['invoice_total'], 0, ',', '.'); ?></td>
+                      <td>Rp. <?= number_format($invoice['invoice_total'] ?? 0, 0, ',', '.'); ?></td>
                     </tr>
                     <tr>
                       <th>Ongkir</th>
-                      <td>Rp. <?= number_format($invoice['invoice_ongkir'], 0, ',', '.'); ?></td>
+                      <td>Rp. <?= number_format($invoice['invoice_ongkir'] ?? 0, 0, ',', '.'); ?></td>
                     </tr>
                     <tr>
                       <th>Diskon</th>
-                      <td>Rp. <?= number_format($invoice['invoice_diskon'], 0, ',', '.'); ?></td>
+                      <td>Rp. <?= number_format($invoice['invoice_diskon'] ?? 0, 0, ',', '.'); ?></td>
                     </tr>
                     <tr>
                       <th>Total</th>
-                      <td>Rp. <?= number_format($invoice['invoice_sub_total'], 0, ',', '.'); ?></td>
+                      <td>Rp. <?= number_format($invoice['invoice_sub_total'] ?? 0, 0, ',', '.'); ?></td>
                     </tr>
                     <tr>
                       <th>
                         <?php
-                        $tipeTransaksi = $invoice['invoice_piutang'];
+                        $tipeTransaksi = $invoice['invoice_piutang'] ?? 0;
                         if ($tipeTransaksi < 1) {
                           echo "Bayar";
                         } else {
@@ -276,12 +310,12 @@ if ($invoice == null) {
                         }
                         ?>
                       </th>
-                      <td>Rp. <?= number_format($invoice['invoice_bayar'], 0, ',', '.'); ?></td>
+                      <td>Rp. <?= number_format($invoice['invoice_bayar'] ?? 0, 0, ',', '.'); ?></td>
                     </tr>
                     <tr>
                       <th>
                         <?php
-                        $tipeTransaksi = $invoice['invoice_piutang'];
+                        $tipeTransaksi = $invoice['invoice_piutang'] ?? 0;
                         if ($tipeTransaksi < 1) {
                           echo "Uang Kembali";
                         } else {
@@ -289,7 +323,7 @@ if ($invoice == null) {
                         }
                         ?>
                       </th>
-                      <td>Rp. <?= number_format($invoice['invoice_kembali'], 0, ',', '.'); ?></td>
+                      <td>Rp. <?= number_format($invoice['invoice_kembali'] ?? 0, 0, ',', '.'); ?></td>
                     </tr>
                   </table>
                 </div>
@@ -301,7 +335,7 @@ if ($invoice == null) {
             <!-- this row will not appear when printing -->
             <div class="row no-print">
               <div class="col-12 d-flex justify-content-end align-items-end" style="gap:0.6rem">
-                <?php if ($invoice['invoice_tipe_transaksi'] == 1) { ?>
+                <?php if (isset($invoice['invoice_tipe_transaksi']) && $invoice['invoice_tipe_transaksi'] == 1) { ?>
                   <button type="button" id="check-midtrans" class="btn btn-info" data-toggle="modal" data-target="#exampleModal">
                     Cek Pembayaran
                   </button>
