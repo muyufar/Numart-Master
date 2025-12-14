@@ -603,6 +603,18 @@
           </li>
         <?php } ?>
 
+        <?php if ($levelLogin === "super admin" || $sessionCabang == 1) { ?>
+          <li class="nav-header">INVESTOR</li>
+          <li class="nav-item">
+            <a href="investor-dashboard" class="nav-link">
+              <i class="nav-icon fa fa-line-chart"></i>
+              <p>
+                Dashboard Investor
+              </p>
+            </a>
+          </li>
+        <?php } ?>
+
         <?php if ($levelLogin === "super admin") { ?>
           <li class="nav-header">SETTINGS</li>
           <li class="nav-item">

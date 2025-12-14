@@ -519,3 +519,4 @@ new Chart(trendCtx, {
 </body>
 </html>
 
+
