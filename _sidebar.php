@@ -75,11 +75,54 @@
               <!--    </li>-->
               <!--  </ul>-->
               <!--</li>-->
-              <li class="nav-item">
-                <a href="customer" class="nav-link">
+              <li class="nav-item has-treeview">
+                <a href="#" class="nav-link">
                   <i class="far fa-circle nav-icon"></i>
-                  <p>Customer</p>
+                  <p>
+                    Customer
+                    <i class="right fas fa-angle-left"></i>
+                  </p>
                 </a>
+                <ul class="nav nav-treeview">
+                  <li class="nav-item">
+                    <a href="customer" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>Data Customer</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="customer-management" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>Dashboard Management</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="customer-analisa" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>Analisa Belanja</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="customer-area-tracking" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>Area Tracking</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="customer-wa-blast" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>WA Blast</p>
+                    </a>
+                  </li>
+                  <?php if ($levelLogin === "super admin" || $levelLogin === "admin") : ?>
+                  <li class="nav-item">
+                    <a href="customer-target-settings" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>Pengaturan Target</p>
+                    </a>
+                  </li>
+                  <?php endif; ?>
+                </ul>
               </li>
               <li class="nav-item">
                 <a href="penjualan" class="nav-link">

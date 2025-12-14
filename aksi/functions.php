@@ -1933,20 +1933,45 @@ function tambahCustomer($data)
     if ($customer_tlpn_cek > 0) {
         echo "
             <script>
-                alert('Customer Sudah Terdaftar');
+                alert('Customer dengan nomor telepon ini sudah terdaftar!');
             </script>
         ";
         return 0;
     }
 
-    // Query untuk menambahkan data
-    $query = "INSERT INTO customer 
-              (customer_nama, customer_kartu, customer_tlpn, customer_email, customer_alamat, customer_create, customer_status, customer_category, customer_cabang) 
-              VALUES 
-              ('$customer_nama', '$customer_kartu', '$customer_tlpn', '$customer_email', '$customer_alamat', '$customer_create', '$customer_status', '$customer_category', '$customer_cabang')";
+    // Check if new columns exist
+    $checkColumn = mysqli_query($conn, "SHOW COLUMNS FROM customer LIKE 'alamat_provinsi'");
+    $hasNewColumns = mysqli_num_rows($checkColumn) > 0;
+
+    if ($hasNewColumns) {
+        // New address fields
+        $alamat_dusun          = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_dusun"] ?? ''));
+        $alamat_desa           = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_desa"] ?? ''));
+        $alamat_kecamatan      = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kecamatan"] ?? ''));
+        $alamat_kabupaten      = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kabupaten"] ?? ''));
+        $alamat_provinsi       = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_provinsi"] ?? ''));
+        $alamat_kode_provinsi  = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_provinsi"] ?? ''));
+        $alamat_kode_kabupaten = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_kabupaten"] ?? ''));
+        $alamat_kode_kecamatan = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_kecamatan"] ?? ''));
+        $alamat_kode_desa      = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_desa"] ?? ''));
+        $customer_birthday     = !empty($data["customer_birthday"]) ? mysqli_real_escape_string($conn, $data["customer_birthday"]) : null;
+        $birthdayValue = $customer_birthday ? "'$customer_birthday'" : "NULL";
+
+        // Query dengan kolom baru
+        $query = "INSERT INTO customer 
+                  (customer_nama, customer_kartu, customer_tlpn, customer_email, customer_alamat, customer_create, customer_status, customer_category, customer_cabang, alamat_dusun, alamat_desa, alamat_kecamatan, alamat_kabupaten, alamat_provinsi, alamat_kode_provinsi, alamat_kode_kabupaten, alamat_kode_kecamatan, alamat_kode_desa, customer_birthday) 
+                  VALUES 
+                  ('$customer_nama', '$customer_kartu', '$customer_tlpn', '$customer_email', '$customer_alamat', '$customer_create', '$customer_status', '$customer_category', '$customer_cabang', '$alamat_dusun', '$alamat_desa', '$alamat_kecamatan', '$alamat_kabupaten', '$alamat_provinsi', '$alamat_kode_provinsi', '$alamat_kode_kabupaten', '$alamat_kode_kecamatan', '$alamat_kode_desa', $birthdayValue)";
+    } else {
+        // Query tanpa kolom baru (backwards compatible)
+        $query = "INSERT INTO customer 
+                  (customer_nama, customer_kartu, customer_tlpn, customer_email, customer_alamat, customer_create, customer_status, customer_category, customer_cabang) 
+                  VALUES 
+                  ('$customer_nama', '$customer_kartu', '$customer_tlpn', '$customer_email', '$customer_alamat', '$customer_create', '$customer_status', '$customer_category', '$customer_cabang')";
+    }
 
     if (!mysqli_query($conn, $query)) {
-        echo "Query Error: " . mysqli_error($conn);
+        echo "<script>console.error('SQL Error: " . addslashes(mysqli_error($conn)) . "');</script>";
         return false;
     }
 
@@ -1957,32 +1982,70 @@ function tambahCustomer($data)
 function editCustomer($data)
 {
 	global $conn;
-	$id = $data["customer_id"];
-
+	$id = intval($data["customer_id"]);
 
 	// ambil data dari tiap elemen dalam form
-	$customer_nama     = htmlspecialchars($data["customer_nama"]);
-	$customer_kartu    = htmlspecialchars($data["customer_kartu"]);
-	$customer_tlpn     = htmlspecialchars($data["customer_tlpn"]);
-	$customer_email    = htmlspecialchars($data["customer_email"]);
-	$customer_alamat   = htmlspecialchars($data["customer_alamat"]);
-	$customer_status   = htmlspecialchars($data["customer_status"]);
-	$customer_category = $data["customer_category"];
+	$customer_nama     = mysqli_real_escape_string($conn, htmlspecialchars($data["customer_nama"]));
+	$customer_kartu    = mysqli_real_escape_string($conn, htmlspecialchars($data["customer_kartu"]));
+	$customer_tlpn     = mysqli_real_escape_string($conn, htmlspecialchars($data["customer_tlpn"]));
+	$customer_email    = mysqli_real_escape_string($conn, htmlspecialchars($data["customer_email"]));
+	$customer_alamat   = mysqli_real_escape_string($conn, htmlspecialchars($data["customer_alamat"]));
+	$customer_status   = mysqli_real_escape_string($conn, htmlspecialchars($data["customer_status"]));
+	$customer_category = mysqli_real_escape_string($conn, $data["customer_category"]);
 
-	// query update data
-	$query = "UPDATE customer SET 
-						customer_nama     = '$customer_nama',
-						customer_kartu    = '$customer_kartu',
-						customer_tlpn     = '$customer_tlpn',
-						customer_email    = '$customer_email',
-						customer_alamat   = '$customer_alamat',
-						customer_status   = '$customer_status',
-						customer_category = '$customer_category'
-						WHERE customer_id = $id
-				";
-	// var_dump($query); die();
+	// Check if new columns exist
+	$checkColumn = mysqli_query($conn, "SHOW COLUMNS FROM customer LIKE 'alamat_provinsi'");
+	$hasNewColumns = mysqli_num_rows($checkColumn) > 0;
+
+	if ($hasNewColumns) {
+		// New address fields
+		$alamat_dusun          = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_dusun"] ?? ''));
+		$alamat_desa           = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_desa"] ?? ''));
+		$alamat_kecamatan      = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kecamatan"] ?? ''));
+		$alamat_kabupaten      = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kabupaten"] ?? ''));
+		$alamat_provinsi       = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_provinsi"] ?? ''));
+		$alamat_kode_provinsi  = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_provinsi"] ?? ''));
+		$alamat_kode_kabupaten = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_kabupaten"] ?? ''));
+		$alamat_kode_kecamatan = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_kecamatan"] ?? ''));
+		$alamat_kode_desa      = mysqli_real_escape_string($conn, htmlspecialchars($data["alamat_kode_desa"] ?? ''));
+		$customer_birthday     = !empty($data["customer_birthday"]) ? mysqli_real_escape_string($conn, $data["customer_birthday"]) : null;
+		$birthdayValue = $customer_birthday ? "customer_birthday = '$customer_birthday'," : "customer_birthday = NULL,";
+
+		// Query dengan kolom baru
+		$query = "UPDATE customer SET 
+							customer_nama     = '$customer_nama',
+							customer_kartu    = '$customer_kartu',
+							customer_tlpn     = '$customer_tlpn',
+							customer_email    = '$customer_email',
+							customer_alamat   = '$customer_alamat',
+							customer_status   = '$customer_status',
+							customer_category = '$customer_category',
+							alamat_dusun      = '$alamat_dusun',
+							alamat_desa       = '$alamat_desa',
+							alamat_kecamatan  = '$alamat_kecamatan',
+							alamat_kabupaten  = '$alamat_kabupaten',
+							alamat_provinsi   = '$alamat_provinsi',
+							alamat_kode_provinsi  = '$alamat_kode_provinsi',
+							alamat_kode_kabupaten = '$alamat_kode_kabupaten',
+							alamat_kode_kecamatan = '$alamat_kode_kecamatan',
+							alamat_kode_desa  = '$alamat_kode_desa',
+							$birthdayValue
+							customer_id = customer_id
+							WHERE customer_id = $id";
+	} else {
+		// Query tanpa kolom baru (backwards compatible)
+		$query = "UPDATE customer SET 
+							customer_nama     = '$customer_nama',
+							customer_kartu    = '$customer_kartu',
+							customer_tlpn     = '$customer_tlpn',
+							customer_email    = '$customer_email',
+							customer_alamat   = '$customer_alamat',
+							customer_status   = '$customer_status',
+							customer_category = '$customer_category'
+							WHERE customer_id = $id";
+	}
+
 	mysqli_query($conn, $query);
-
 	return mysqli_affected_rows($conn);
 }
 
