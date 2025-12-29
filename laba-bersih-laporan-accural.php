@@ -566,7 +566,7 @@ function groupByPrefix($items)
       ];
     }
     $grouped[$prefix]['items'][] = $item;
-    $grouped[$prefix]['total'] += $item['saldo_akhir'];
+    $grouped[$prefix]['total'] += $item['saldo_awal'];
   }
   return $grouped;
 }
@@ -1092,9 +1092,7 @@ if ($persediaan_akhir > 0) {
                   <?php if (!empty($aktiva_grouped)) : ?>
                     <?php foreach ($aktiva_grouped as $prefix => $group) : ?>
                       <?php if ($group['total'] != 0) : ?>
-                        <tr>
-                          <td colspan="3" class="bg-light"><strong><?= htmlspecialchars($prefix) ?></strong></td>
-                        </tr>
+
 
                         <?php foreach ($group['items'] as $akt) : ?>
                           <?php if ($akt['saldo_akhir'] != 0) : ?>
@@ -1183,16 +1181,14 @@ if ($persediaan_akhir > 0) {
                     <?php if (!empty($pasiva_grouped)) : ?>
                       <?php foreach ($pasiva_grouped as $prefix => $group) : ?>
                         <?php if ($group['total'] != 0) : ?>
-                          <tr>
-                            <td colspan="3" class="bg-light"><strong><?= htmlspecialchars($prefix) ?></strong></td>
-                          </tr>
+
 
                           <?php foreach ($group['items'] as $pas) : ?>
                             <?php if ($pas['saldo_akhir'] != 0) : ?>
                               <tr>
                                 <td style="width: 20%;"><?= htmlspecialchars($pas['kode_akun']) ?></td>
                                 <td style="padding-left: 20px;"><?= htmlspecialchars($pas['name']) ?></td>
-                                <td style="width: 30%; text-align: right;"><?= rupiah($pas['saldo_akhir']) ?></td>
+                                <td style="width: 30%; text-align: right;"><?= rupiah($pas['saldo_awal']) ?></td>
                               </tr>
                             <?php endif; ?>
                           <?php endforeach; ?>

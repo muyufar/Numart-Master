@@ -153,7 +153,8 @@
                       <tr>
                         <th>No</th>
                         <th>Nama Barang</th>
-                        <th>Qty</th>
+                        <th style="text-align: center;">Satuan</th>
+                        <th style="text-align: center;">Qty</th>
                       </tr>
                       </thead>
                       <tbody>
@@ -167,13 +168,16 @@
                         transfer_produk_keluar.tpk_barang_sn_desc,  
                         transfer_produk_keluar.tpk_cabang, 
                         barang.barang_id, 
-                        barang.barang_nama
+                        barang.barang_nama,
+                        satuan.satuan_nama
   	                             FROM transfer_produk_keluar 
   	                             JOIN barang ON transfer_produk_keluar.tpk_barang_id = barang.barang_id
+  	                             LEFT JOIN satuan ON barang.satuan_id = satuan.satuan_id
   	                             WHERE tpk_ref = $transfer1 && tpk_cabang = '".$sessionCabang."'
   	                             ORDER BY tpk_id DESC
   	                             ");
   	                  while ($rowProduct = mysqli_fetch_array($queryProduct)) {
+  	                    $satuanNama = isset($rowProduct['satuan_nama']) && !empty($rowProduct['satuan_nama']) ? $rowProduct['satuan_nama'] : '-';
   	                ?>
   	                
                       <tr>
@@ -184,7 +188,8 @@
                             <small>No. SN: <?= $rowProduct['tpk_barang_sn_desc']; ?></small>
                             <?php } ?>
                         </td>
-                        <td><?= $rowProduct['tpk_qty']; ?></td>
+                        <td style="text-align: center;"><span class="badge badge-info"><?= $satuanNama; ?></span></td>
+                        <td style="text-align: center;"><?= $rowProduct['tpk_qty']; ?> <?= $satuanNama; ?></td>
                       </tr>
                       <?php $i++; ?>
                   	<?php } ?>

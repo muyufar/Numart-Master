@@ -64,7 +64,8 @@ $tokoPenerimaData = query("SELECT * FROM toko WHERE toko_cabang = '{$transfer['t
                         <th>No</th>
                         <th>Barcode</th>
                         <th>Nama Barang</th>
-                        <th>Qty</th>
+                        <th style="text-align: center;">Satuan</th>
+                        <th style="text-align: center;">Qty</th>
                         <th>Harga Satuan</th>
                         <th>Total Harga</th>
                         <th>Ceklis</th>
@@ -75,9 +76,11 @@ $tokoPenerimaData = query("SELECT * FROM toko WHERE toko_cabang = '{$transfer['t
                       $queryProduct = $conn->query("
                         SELECT 
                           tp.tpk_id, tp.tpk_qty, tp.tpk_barang_sn_desc,
-                          b.barang_kode, b.barang_nama, b.barang_harga_grosir_2
+                          b.barang_kode, b.barang_nama, b.barang_harga_grosir_2,
+                          s.satuan_nama
                         FROM transfer_produk_keluar tp
                         JOIN barang b ON tp.tpk_barang_id = b.barang_id
+                        LEFT JOIN satuan s ON b.satuan_id = s.satuan_id
                         WHERE tp.tpk_ref = '$id' 
                         ORDER BY tp.tpk_id DESC
                       ");
@@ -88,6 +91,7 @@ $tokoPenerimaData = query("SELECT * FROM toko WHERE toko_cabang = '{$transfer['t
                         $hargaSatuan = $row['barang_harga_grosir_2'];
                         $totalHarga = $qty * $hargaSatuan;
                         $subtotal += $totalHarga;
+                        $satuanNama = isset($row['satuan_nama']) && !empty($row['satuan_nama']) ? $row['satuan_nama'] : '-';
                       ?>
                       <tr>
                         <td><?= $i++; ?></td>
@@ -98,7 +102,8 @@ $tokoPenerimaData = query("SELECT * FROM toko WHERE toko_cabang = '{$transfer['t
                             <small>No. SN: <?= $row['tpk_barang_sn_desc']; ?></small>
                           <?php endif; ?>
                         </td>
-                        <td><?= $qty; ?></td>
+                        <td style="text-align: center;"><?= $satuanNama; ?></td>
+                        <td style="text-align: center;"><?= $qty; ?> <?= $satuanNama; ?></td>
                         <td>Rp. <?= number_format($hargaSatuan, 0, ',', '.'); ?></td>
                         <td>Rp. <?= number_format($totalHarga, 0, ',', '.'); ?></td>
                         <td><input type="checkbox"></td>

@@ -14,10 +14,10 @@ error_reporting(0);
 if (file_exists('aksi/koneksi.php')) {
     include_once 'aksi/koneksi.php';
 } else {
-    $servername = "localhost";
-    $username = "root";
-    $password = "";
-    $db = "u700125577_numart";
+$servername = "localhost";
+$username = "u700125577_user";
+$password = "@u700125577_User";
+$db = "u700125577_numart";
     $conn = new mysqli($servername, $username, $password, $db);
 }
 
@@ -200,7 +200,33 @@ AND l.date >= '$startOfPeriod 00:00:00'
 AND l.date <= '$endOfPeriod 23:59:59'
 AND lk.kategori = 'beban'");
 $biayaOperasional = !empty($biayaOpResult) ? $biayaOpResult[0]['total'] : 0;
-$labaSebelumBagiHasil = $labaKotor - $biayaOperasional;
+
+// Laba Operasional (Laba Kotor - Biaya Operasional)
+$labaOperasional = $labaKotor - $biayaOperasional;
+
+// Biaya Cadangan Pajak (5% dari Laba Operasional)
+$biayaCadanganPajak = $labaOperasional * 0.05;
+
+// Transfer Stock dari Nugrosir (Cabang 0 ke Cabang 1)
+$transferStockResult = investorQuery("SELECT COALESCE(SUM(tpk.tpk_qty * b.barang_harga_beli), 0) AS total
+FROM transfer_produk_keluar tpk
+JOIN barang b ON tpk.tpk_barang_id = b.barang_id
+WHERE tpk.tpk_pengirim_cabang = 0
+AND tpk.tpk_penerima_cabang = $investorCabang
+AND tpk.tpk_date BETWEEN '$startOfPeriod' AND '$endOfPeriod'");
+$transferStock = !empty($transferStockResult) ? $transferStockResult[0]['total'] : 0;
+
+// Jumlah item transfer
+$transferCountResult = investorQuery("SELECT COUNT(tpk.tpk_id) AS jumlah, SUM(tpk.tpk_qty) AS total_qty
+FROM transfer_produk_keluar tpk
+WHERE tpk.tpk_pengirim_cabang = 0
+AND tpk.tpk_penerima_cabang = $investorCabang
+AND tpk.tpk_date BETWEEN '$startOfPeriod' AND '$endOfPeriod'");
+$transferCount = !empty($transferCountResult) ? $transferCountResult[0]['jumlah'] : 0;
+$transferQty = !empty($transferCountResult) ? $transferCountResult[0]['total_qty'] : 0;
+
+// Laba Sebelum Bagi Hasil (setelah biaya operasional dan cadangan pajak)
+$labaSebelumBagiHasil = $labaKotor - $biayaOperasional - $biayaCadanganPajak;
 
 // Bagi Hasil
 $bagiHasilNugrosir = $labaSebelumBagiHasil * 0.45; // NUGROSIR 45%
@@ -554,6 +580,30 @@ LIMIT 5");
             </div>
         </div>
 
+        <!-- Transfer Stock dari Nugrosir -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="stat-card" style="background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <i class="fas fa-truck-loading stat-icon" style="position: relative; opacity: 0.3; font-size: 2.5rem;"></i>
+                                <div class="stat-label">Transfer Stock dari Nugrosir</div>
+                                <div class="stat-value"><?php echo formatRupiah($transferStock); ?></div>
+                                <div class="stat-sub"><?php echo number_format($transferCount); ?> Item (<?php echo number_format($transferQty); ?> pcs)</div>
+                            </div>
+                            <div class="col-md-6 text-md-right mt-3 mt-md-0">
+                                <small class="d-block opacity-75 mb-1">Periode:</small>
+                                <span style="background: rgba(255,255,255,0.2); padding: 8px 20px; border-radius: 50px; font-weight: 600;">
+                                    <?php echo $periodLabel; ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Laba Rugi & Top Products -->
         <div class="row">
             <div class="col-lg-6">
@@ -579,6 +629,16 @@ LIMIT 5");
                         <div class="laba-rugi-item">
                             <span><i class="fas fa-minus-circle text-warning mr-2"></i>Biaya Operasional</span>
                             <span class="laba-rugi-value negative"><?php echo formatRupiah($biayaOperasional); ?></span>
+                        </div>
+                        <div class="laba-rugi-item total" style="background: #e0f2fe;">
+                            <span>Laba Operasional</span>
+                            <span class="laba-rugi-value <?php echo $labaOperasional >= 0 ? 'positive' : 'negative'; ?>">
+                                <?php echo formatRupiah($labaOperasional); ?>
+                            </span>
+                        </div>
+                        <div class="laba-rugi-item" style="background: #fef3c7;">
+                            <span><i class="fas fa-file-invoice text-warning mr-2"></i>Cadangan Pajak (5% dari Laba Operasional)</span>
+                            <span class="laba-rugi-value negative"><?php echo formatRupiah($biayaCadanganPajak); ?></span>
                         </div>
                         <div class="laba-rugi-item total">
                             <span>Laba Sebelum Bagi Hasil</span>

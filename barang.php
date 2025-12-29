@@ -42,11 +42,17 @@
                 <input type="hidden" name="id" value="<?= $sessionCabang; ?>">
                 <button type="submit" class="btn btn-success">Ekspor Data</button>
             </form>
+            <a href="cetak-label-harga" class="btn btn-info">
+                <i class="fas fa-print"></i> Cetak Label
+            </a>
             <?php else: ?>
             <form action="export/export_barang_template.php" method="get" style="display:inline;">
                 <input type="hidden" name="id" value="<?= $sessionCabang; ?>">
                 <button type="submit" class="btn btn-success">Ekspor Data</button>
             </form>
+            <a href="cetak-label-harga" class="btn btn-info">
+                <i class="fas fa-print"></i> Cetak Label
+            </a>
             <a href="barang-list-stock" class="btn btn-primary">Lihat Semua Stock</a>
             <?php endif; ?>
             <div id="toast" class="toast"></div>

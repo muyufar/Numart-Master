@@ -23,7 +23,10 @@ $table = <<<EOT
       SUM(CASE WHEN a.barang_cabang = 1 THEN a.barang_stock ELSE 0 END) AS stockDukun,
       SUM(CASE WHEN a.barang_cabang = 3 THEN a.barang_stock ELSE 0 END) AS stockPPSrumbung,
       SUM(CASE WHEN a.barang_cabang = 2 THEN a.barang_stock ELSE 0 END) AS stockPakis,
-      SUM(CASE WHEN a.barang_cabang = 5 THEN a.barang_stock ELSE 0 END) AS stockTegalrejo
+      SUM(CASE WHEN a.barang_cabang = 5 THEN a.barang_stock ELSE 0 END) AS stockTegalrejo,
+      
+      -- Hitung jumlah cabang (simple integer, no collation issue)
+      COUNT(DISTINCT a.barang_cabang) AS jumlah_cabang
 
     FROM barang a
     WHERE a.barang_status = '1'
@@ -41,12 +44,67 @@ $columns = array(
     array('db' => 'barang_kode',           'dt' => 1), // Kode Barang
     array('db' => 'barang_nama',           'dt' => 2), // Nama
     array('db' => 'barang_terjual',        'dt' => 3), // penjualan
-    array('db' => 'kode_suplier',           'dt' => 4), // suplier
+    array('db' => 'kode_suplier',          'dt' => 4), // suplier
     array('db' => 'stockGudang',           'dt' => 5), // Stock Gudang
     array('db' => 'stockDukun',            'dt' => 6), // Stock Dukun
     array('db' => 'stockPPSrumbung',       'dt' => 7),
-    array('db' => 'stockPakis',             'dt' => 8),
-    array('db' => 'stockTegalrejo',             'dt' =>9),// Stock PP Srumbung
+    array('db' => 'stockPakis',            'dt' => 8),
+    array('db' => 'stockTegalrejo',        'dt' => 9), // Stock Tegalrejo
+    array('db' => 'jumlah_cabang',         'dt' => 10, // Keterangan (generate HTML di formatter)
+        'formatter' => function($jumlah_cabang, $row) {
+            $barang_kode = isset($row['barang_kode']) ? htmlspecialchars($row['barang_kode'], ENT_QUOTES, 'UTF-8') : '';
+            $barang_nama = isset($row['barang_nama']) ? htmlspecialchars($row['barang_nama'], ENT_QUOTES, 'UTF-8') : '';
+            
+            // Daftar semua cabang
+            $all_cabang = array(
+                0 => 'Gudang',
+                1 => 'Dukun',
+                2 => 'Pakis',
+                3 => 'PP Srumbung',
+                5 => 'Tegalrejo'
+            );
+            
+            // Cek apakah lengkap (ada di 5 cabang)
+            if ($jumlah_cabang >= 5) {
+                return '<span class="badge badge-success">✓ Lengkap</span>';
+            } else {
+                // Belum lengkap - cari cabang yang tersedia dan missing
+                $conn_temp = $GLOBALS['conn'] ?? null;
+                $cabang_tersedia = [];
+                
+                if ($conn_temp) {
+                    $kode_escaped = mysqli_real_escape_string($conn_temp, $row['barang_kode']);
+                    $query_check = "SELECT DISTINCT barang_cabang FROM barang WHERE barang_kode = '$kode_escaped' AND barang_status = '1' ORDER BY barang_cabang";
+                    $result_check = mysqli_query($conn_temp, $query_check);
+                    
+                    if ($result_check) {
+                        while ($r = mysqli_fetch_assoc($result_check)) {
+                            $cabang_tersedia[] = (int)$r['barang_cabang'];
+                        }
+                    }
+                }
+                
+                // Cari cabang yang missing
+                $cabang_missing = [];
+                foreach ($all_cabang as $id => $nama) {
+                    if (!in_array($id, $cabang_tersedia)) {
+                        $cabang_missing[] = $nama;
+                    }
+                }
+                
+                $cabang_str = implode(',', $cabang_tersedia);
+                $missing_text = implode(', ', $cabang_missing);
+                
+                return '<span class="badge badge-warning">Belum ada di: ' . $missing_text . '</span><br>' .
+                       '<button class="btn btn-xs btn-info btn-duplikasi mt-1" ' .
+                       'data-kode="' . $barang_kode . '" ' .
+                       'data-nama="' . $barang_nama . '" ' .
+                       'data-cabang="' . $cabang_str . '">' .
+                       '<i class="fas fa-copy"></i> Duplikasi' .
+                       '</button>';
+            }
+        }
+    ),
 ); 
 
 // Include SQL query processing class 

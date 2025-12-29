@@ -391,6 +391,7 @@ if( isset($_POST["prosesTransfer"]) ){
                     <th style="width: 6%;">No.</th>
                     <th>Barang Kode</th>
                     <th>Nama</th>
+                    <th style="text-align: center;">Satuan</th>
                     <th style="text-align: center;">QTY</th>
                     <th>No. SN</th>
                     <th style="text-align: center; width: 10%">Aksi</th>
@@ -405,16 +406,21 @@ if( isset($_POST["prosesTransfer"]) ){
                     foreach($keranjang as $row) : 
 
                     $bik = $row['barang_id'];
-                    $stockParent = mysqli_query( $conn, "select barang_kode, barang_stock from barang where barang_id = '".$bik."'");
+                    $stockParent = mysqli_query( $conn, "SELECT b.barang_kode, b.barang_stock, s.satuan_nama 
+                                                         FROM barang b 
+                                                         LEFT JOIN satuan s ON b.satuan_id = s.satuan_id 
+                                                         WHERE b.barang_id = '".$bik."'");
                     $brg = mysqli_fetch_array($stockParent); 
                     $tb_kode = $brg['barang_kode'];
                     $tb_brg  = $brg['barang_stock'];
+                    $tb_satuan = isset($brg['satuan_nama']) && !empty($brg['satuan_nama']) ? $brg['satuan_nama'] : '-';
           
                   ?>
                   <tr>
                       <td><?= $i; ?></td>
                       <td><?= $tb_kode; ?></td>
                       <td><?= $row['keranjang_transfer_nama'] ?></td>
+                      <td style="text-align: center;"><span class="badge badge-info"><?= $tb_satuan; ?></span></td>
                       <td style="text-align: center;"><?= $row['keranjang_transfer_qty']; ?></td>
                       <td>
                         <?php  
@@ -537,7 +543,11 @@ if( isset($_POST["prosesTransfer"]) ){
         <!-- /.row -->
     </section>
       <?php  
-        $data = query("SELECT * FROM barang WHERE barang_stock > 0 && barang_cabang = $tsc_cabang_pusat && barang_status = 1 ORDER BY barang_id DESC");
+        $data = query("SELECT b.*, s.satuan_nama 
+                       FROM barang b 
+                       LEFT JOIN satuan s ON b.satuan_id = s.satuan_id 
+                       WHERE b.barang_stock > 0 && b.barang_cabang = $tsc_cabang_pusat && b.barang_status = 1 
+                       ORDER BY b.barang_id DESC");
       ?>
       <div class="modal fade" id="modal-id" data-backdrop="static">
           <div class="modal-dialog modal-lg-pop-up">
@@ -556,6 +566,7 @@ if( isset($_POST["prosesTransfer"]) ){
                           <th style="width: 6%;">No.</th>
                           <th style="width: 13%;">Kode Barang</th>
                           <th>Nama</th>
+                          <th style="text-align: center;">Satuan</th>
                           <th>Stock</th>
                           <th style="text-align: center;">Aksi</th>
                         </tr>
@@ -563,11 +574,13 @@ if( isset($_POST["prosesTransfer"]) ){
                         <tbody>
                         <?php $i=1; ?>
                         <?php foreach($data as $row) : ?>
+                        <?php $satuanNama = isset($row['satuan_nama']) && !empty($row['satuan_nama']) ? $row['satuan_nama'] : '-'; ?>
                         <tr>
                             <td><?= $i; ?></td>
                             <td><?= $row['barang_kode'] ?></td>
                             <td><?= $row['barang_nama'] ?></td>
-                            <td><?= $row['barang_stock'] ?></td>
+                            <td style="text-align: center;"><span class="badge badge-info"><?= $satuanNama; ?></span></td>
+                            <td><?= $row['barang_stock'] ?> <small class="text-muted"><?= $satuanNama; ?></small></td>
                             <td style="text-align: center; width: 17%;">
                               <form role="form" action="" method="post">
                                 <input type="hidden" name="barang_id" value="<?= $row["barang_id"]; ?>">
