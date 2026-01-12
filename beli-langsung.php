@@ -1486,14 +1486,14 @@ if (isset($_POST["updateQtyPenjualan"])) {
                         <td class="table-nominal tn d2parent">
                           <span>Rp.</span>
                           <span class="">
-                            <input type="number" name="angka1" id="angka1" class="d2 ongkir-dinamis-bayar" autocomplete="off" onkeyup="hitung3();" onkeyup="return isNumberKey(event)" onkeypress="return hanyaAngka1(event)">
+                            <input type="text" name="angka1" id="angka1" class="d2 ongkir-dinamis-bayar" autocomplete="off" onkeyup="hitung3();" onkeypress="return hanyaAngka1(event)">
                           </span>
                         </td>
 
                         <td class="table-nominal tn h2parent" style="display: none;">
                           <span>Rp.</span>
                           <span class="">
-                            <input type="number" name="angka1" id="angka1" class="h22 ongkir-dinamis-bayar" autocomplete="off" onkeyup="hitung7();" onkeyup="return isNumberKey(event)" onkeypress="return hanyaAngka1(event)">
+                            <input type="text" name="angka1" id="angka1" class="h22 ongkir-dinamis-bayar" autocomplete="off" onkeyup="hitung7();" onkeypress="return hanyaAngka1(event)">
                           </span>
                         </td>
                       </tr>
@@ -1524,7 +1524,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                         <td class="table-nominal tn">
                           <span>Rp.</span>
                           <span class="ongkir-beli-langsung" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                            <input type="number" value="<?= $dataTokoLogin['toko_ongkir']; ?>" name="invoice_ongkir" id="" class="b2 ongkir-statis-input" readonly>
+                            <input type="text" value="<?= number_format($dataTokoLogin['toko_ongkir'], 0, ',', '.'); ?>" name="invoice_ongkir" id="" class="b2 ongkir-statis-input" readonly>
                             <i class="fa fa-close fa-ongkir-statis"></i>
                           </span>
                         </td>
@@ -1534,7 +1534,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                         <td class="table-nominal tn">
                           <span>Rp.</span>
                           <span>
-                            <input type="number" name="invoice_diskon" id="" class="f21 ongkir-statis-diskon" value="0" required="" autocomplete="off" onkeyup="hitung5();" onkeyup="return isNumberKey(event)" onkeypress="return hanyaAngka1(event)">
+                            <input type="text" name="invoice_diskon" id="" class="f21 ongkir-statis-diskon" value="0" required="" autocomplete="off" onkeyup="hitung5();" onkeypress="return hanyaAngka1(event)">
                           </span>
                         </td>
                       </tr>
@@ -1568,7 +1568,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                         <td class="table-nominal tn">
                           <span>Rp.</span>
                           <span>
-                            <input type="number" name="angka1" id="angka1" class="d21 ongkir-statis-bayar" autocomplete="off" onkeyup="hitung4();" onkeyup="return isNumberKey(event)" onkeypress="return hanyaAngka1(event)">
+                            <input type="text" name="angka1" id="angka1" class="d21 ongkir-statis-bayar" autocomplete="off" onkeyup="hitung4();" onkeypress="return hanyaAngka1(event)">
                           </span>
                         </td>
                       </tr>
