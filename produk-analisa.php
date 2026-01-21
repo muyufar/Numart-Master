@@ -9,6 +9,11 @@ if ($levelLogin === "kurir" || $levelLogin === "kasir") {
 }
 
 // Filters
+$selectedCabang = $sessionCabang;
+if ($levelLogin === "super admin") {
+  $selectedCabang = isset($_GET['cabang']) ? intval($_GET['cabang']) : $sessionCabang;
+}
+
 $filterPeriode = isset($_GET['periode']) ? $_GET['periode'] : 'bulan';
 $goal = isset($_GET['goal']) ? $_GET['goal'] : 'balanced'; // balanced | omzet | margin | stok
 $kategoriId = isset($_GET['kategori_id']) ? intval($_GET['kategori_id']) : 0;
@@ -57,7 +62,11 @@ switch ($filterPeriode) {
 $daysRange = max(1, (int)((strtotime($endDate) - strtotime($startDate)) / 86400) + 1);
 
 // Dropdown data
-$kategoriList = query("SELECT kategori_id, kategori_nama FROM kategori WHERE kategori_status = '1' AND kategori_cabang = $sessionCabang ORDER BY kategori_nama");
+$kategoriList = query("SELECT kategori_id, kategori_nama FROM kategori WHERE kategori_status = '1' AND kategori_cabang = $selectedCabang ORDER BY kategori_nama");
+$cabangList = [];
+if ($levelLogin === "super admin") {
+  $cabangList = query("SELECT toko_cabang, toko_kota FROM toko ORDER BY toko_cabang ASC");
+}
 
 // quick summary (small query, no heavy group by)
 $summary = query("
@@ -66,7 +75,7 @@ $summary = query("
     COALESCE(SUM(p.barang_qty * p.keranjang_harga), 0) AS omzet,
     COALESCE(SUM(p.barang_qty_keranjang * p.keranjang_harga_beli), 0) AS hpp
   FROM penjualan p
-  WHERE p.penjualan_cabang = $sessionCabang
+  WHERE p.penjualan_cabang = $selectedCabang
     AND p.penjualan_date BETWEEN '$startDate' AND '$endDate'
 ");
 $totalProdukTerjual = intval($summary[0]['total_produk_terjual'] ?? 0);
@@ -173,10 +182,10 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
             <div class="col-md-12 mb-3">
               <label class="font-weight-bold">Filter Periode:</label>
               <div class="btn-group flex-wrap" role="group">
-                <a href="?periode=hari&goal=<?= urlencode($goal) ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'hari' ? 'active' : '' ?>">Hari Ini</a>
-                <a href="?periode=minggu&goal=<?= urlencode($goal) ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'minggu' ? 'active' : '' ?>">Minggu Ini</a>
-                <a href="?periode=bulan&goal=<?= urlencode($goal) ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'bulan' ? 'active' : '' ?>">Bulan Ini</a>
-                <a href="?periode=tahun&goal=<?= urlencode($goal) ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'tahun' ? 'active' : '' ?>">Tahun Ini</a>
+                <a href="?periode=hari&goal=<?= urlencode($goal) ?>&cabang=<?= (int)$selectedCabang ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'hari' ? 'active' : '' ?>">Hari Ini</a>
+                <a href="?periode=minggu&goal=<?= urlencode($goal) ?>&cabang=<?= (int)$selectedCabang ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'minggu' ? 'active' : '' ?>">Minggu Ini</a>
+                <a href="?periode=bulan&goal=<?= urlencode($goal) ?>&cabang=<?= (int)$selectedCabang ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'bulan' ? 'active' : '' ?>">Bulan Ini</a>
+                <a href="?periode=tahun&goal=<?= urlencode($goal) ?>&cabang=<?= (int)$selectedCabang ?>" class="btn btn-outline-primary period-btn <?= $filterPeriode == 'tahun' ? 'active' : '' ?>">Tahun Ini</a>
               </div>
             </div>
 
@@ -209,6 +218,23 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
               </select>
             </div>
 
+            <?php if ($levelLogin === "super admin") : ?>
+              <div class="col-md-3 mt-3">
+                <label>Cabang (Custom):</label>
+                <select name="cabang" class="form-control select2bs4">
+                  <?php foreach ($cabangList as $c) :
+                    $cabangVal = (int)($c['toko_cabang'] ?? 0);
+                    $cabangLabel = $cabangVal < 1 ? 'Pusat' : 'Cabang ' . $cabangVal;
+                    $kota = $c['toko_kota'] ?? '';
+                  ?>
+                    <option value="<?= $cabangVal ?>" <?= $selectedCabang == $cabangVal ? 'selected' : '' ?>>
+                      <?= $cabangLabel ?><?= $kota ? ' - ' . $kota : '' ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            <?php endif; ?>
+
             <div class="col-md-3 mt-3">
               <label>Kode Supplier (opsional):</label>
               <input type="text" name="supplier" class="form-control" value="<?= htmlspecialchars($supplier) ?>" placeholder="mis. SUP-001">
@@ -235,7 +261,7 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
           <div class="mt-3 d-flex flex-wrap" style="gap:8px;">
             <span class="badge badge-primary" style="font-size: 1rem;"><i class="fas fa-calendar"></i> <?= $periodLabel ?></span>
             <span class="badge badge-info" style="font-size: 1rem;"><i class="fas fa-clock"></i> <?= $daysRange ?> hari</span>
-            <span class="badge badge-secondary" style="font-size: 1rem;"><i class="fas fa-store"></i> Cabang: <?= $sessionCabang ?></span>
+            <span class="badge badge-secondary" style="font-size: 1rem;"><i class="fas fa-store"></i> Cabang: <?= $selectedCabang ?></span>
           </div>
         </div>
       </div>
@@ -312,6 +338,7 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
                   <th>Velocity (PCS/Hari)</th>
                   <th>Days of Stock</th>
                   <th>Promo Score</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
             </table>
@@ -320,6 +347,65 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
       </div>
     </div>
   </section>
+</div>
+
+<!-- Modal Generate Copy Iklan -->
+<div class="modal fade" id="modal-copy-iklan" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0d9488 0%, #0284c7 100%); color:#fff;">
+        <h5 class="modal-title"><i class="fas fa-pen-nib"></i> Generate Copy Iklan</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color:#fff; opacity:0.9;">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 text-muted" id="copy-meta">Memuat...</div>
+
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="mb-1">Platform</label>
+            <select id="copy-platform" class="form-control">
+              <option value="wa">WhatsApp</option>
+              <option value="ig_feed">Instagram Feed</option>
+              <option value="ig_story">Instagram Story</option>
+              <option value="fb">Facebook</option>
+              <option value="marketplace">Marketplace</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="mb-1">Gaya Bahasa</label>
+            <select id="copy-tone" class="form-control">
+              <option value="santai">Santai</option>
+              <option value="formal">Formal</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="mb-1">Harga/Promo (opsional)</label>
+            <input id="copy-promo" type="text" class="form-control" placeholder="cth: Diskon 10% / Rp 9.900 / Beli 2 gratis 1">
+            <div class="mt-2 d-flex flex-wrap" style="gap:6px;">
+              <button type="button" class="btn btn-xs btn-outline-primary preset-promo" data-text="Flash Sale hari ini!">Flash Sale</button>
+              <button type="button" class="btn btn-xs btn-outline-success preset-promo" data-text="Best Seller! Beli 2 lebih hemat">Best Seller</button>
+              <button type="button" class="btn btn-xs btn-outline-info preset-promo" data-text="Bundling hemat (paket) – stok terbatas">Bundling</button>
+              <button type="button" class="btn btn-xs btn-outline-danger preset-promo" data-text="Clearance! Diskon terbatas sampai stok habis">Clearance</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="copy-loading" class="text-center py-4">
+          <div class="spinner-border text-info" role="status"></div>
+          <div class="mt-2">Sedang generate copy iklan...</div>
+        </div>
+        <div id="copy-content" style="display:none;">
+          <ul class="nav nav-pills mb-3" id="copy-tabs" role="tablist"></ul>
+          <div class="tab-content" id="copy-tab-content"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <?php include '_footer.php'; ?>
@@ -331,7 +417,7 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
   $(function() {
     $('.select2bs4').select2({ theme: 'bootstrap4' });
 
-    const ajaxUrl = `produk-analisa-data.php?cabang=<?= (int)$sessionCabang ?>&start_date=<?= urlencode($startDate) ?>&end_date=<?= urlencode($endDate) ?>&goal=<?= urlencode($goal) ?>&kategori_id=<?= (int)$kategoriId ?>&supplier=<?= urlencode($supplier) ?>&min_margin=<?= urlencode((string)$minMargin) ?>&min_qty=<?= urlencode((string)$minQty) ?>`;
+    const ajaxUrl = `produk-analisa-data.php?cabang=<?= (int)$selectedCabang ?>&start_date=<?= urlencode($startDate) ?>&end_date=<?= urlencode($endDate) ?>&goal=<?= urlencode($goal) ?>&kategori_id=<?= (int)$kategoriId ?>&supplier=<?= urlencode($supplier) ?>&min_margin=<?= urlencode((string)$minMargin) ?>&min_qty=<?= urlencode((string)$minQty) ?>`;
 
     const table = $('#produkAnalisaTable').DataTable({
       processing: true,
@@ -340,7 +426,8 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
       pageLength: 25,
       order: [[12, "desc"]],
       columnDefs: [
-        { targets: 0, orderable: false, searchable: false }
+        { targets: 0, orderable: false, searchable: false },
+        { targets: 13, orderable: false, searchable: false }
       ]
     });
 
@@ -349,6 +436,97 @@ $margin = $omzet > 0 ? ($laba / $omzet) * 100 : 0;
       table.column(0, { page: 'applied' }).nodes().each(function(cell, i) {
         cell.innerHTML = i + 1 + info.start;
       });
+    });
+
+    // Generate copy button
+    $('#produkAnalisaTable').on('click', '.btn-generate-copy', function() {
+      const barangId = $(this).data('id');
+      const nama = $(this).data('nama') || '';
+
+      $('#modal-copy-iklan').modal('show');
+      $('#copy-meta').text(`Produk: ${nama} (ID: ${barangId}) | Goal: <?= htmlspecialchars($goal) ?> | Cabang: <?= (int)$selectedCabang ?> | Periode: <?= htmlspecialchars($periodLabel) ?>`);
+      $('#copy-loading').show();
+      $('#copy-content').hide();
+      $('#copy-tabs').empty();
+      $('#copy-tab-content').empty();
+
+      const platform = $('#copy-platform').val() || 'wa';
+      const tone = $('#copy-tone').val() || 'santai';
+      const promoText = $('#copy-promo').val() || '';
+
+      $.getJSON('produk-analisa-copy.php', {
+        cabang: <?= (int)$selectedCabang ?>,
+        start_date: '<?= $startDate ?>',
+        end_date: '<?= $endDate ?>',
+        goal: '<?= $goal ?>',
+        barang_id: barangId,
+        platform: platform,
+        tone: tone,
+        promo: promoText
+      }).done(function(res) {
+        if (!res || !res.variants || !res.variants.length) {
+          $('#copy-loading').hide();
+          $('#copy-content').show();
+          $('#copy-tab-content').html(`<div class="alert alert-warning">Copy iklan tidak tersedia.</div>`);
+          return;
+        }
+
+        res.variants.forEach((v, idx) => {
+          const tabId = `var-${idx}`;
+          const active = idx === 0 ? 'active' : '';
+          const ariaSelected = idx === 0 ? 'true' : 'false';
+          $('#copy-tabs').append(`
+            <li class="nav-item">
+              <a class="nav-link ${active}" id="${tabId}-tab" data-toggle="pill" href="#${tabId}" role="tab" aria-selected="${ariaSelected}">
+                Var ${idx + 1}
+              </a>
+            </li>
+          `);
+
+          const textBlock = `${v.headline}\n\n${v.body}\n\n${v.cta}\n\n${v.hashtags}`;
+          $('#copy-tab-content').append(`
+            <div class="tab-pane fade show ${active}" id="${tabId}" role="tabpanel">
+              <div class="mb-2"><b>Headline</b><br><div class="p-2 bg-light rounded">${v.headline}</div></div>
+              <div class="mb-2"><b>Body</b><br><div class="p-2 bg-light rounded" style="white-space:pre-line;">${v.body}</div></div>
+              <div class="mb-2"><b>CTA</b><br><div class="p-2 bg-light rounded">${v.cta}</div></div>
+              <div class="mb-3"><b>Hashtag</b><br><div class="p-2 bg-light rounded" style="white-space:pre-line;">${v.hashtags}</div></div>
+              <button class="btn btn-primary btn-copy-text" data-text="${encodeURIComponent(textBlock)}">
+                <i class="fas fa-copy"></i> Copy Semua
+              </button>
+            </div>
+          `);
+        });
+
+        $('#copy-loading').hide();
+        $('#copy-content').show();
+      }).fail(function() {
+        $('#copy-loading').hide();
+        $('#copy-content').show();
+        $('#copy-tab-content').html(`<div class="alert alert-danger">Gagal generate copy. Coba refresh dan ulangi.</div>`);
+      });
+    });
+
+    // Regenerate saat opsi berubah (kalau modal sedang terbuka dan ada produk aktif)
+    $('#copy-platform, #copy-tone').on('change', function() {
+      const $btn = $('#produkAnalisaTable').find('.btn-generate-copy[data-id]').first();
+      // no-op; user akan klik Generate lagi untuk kontrol penuh
+    });
+
+    // Copy to clipboard
+    $(document).on('click', '.btn-copy-text', function() {
+      const text = decodeURIComponent($(this).data('text') || '');
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        $(this).text('Tersalin!');
+        setTimeout(() => $(this).html('<i class="fas fa-copy"></i> Copy Semua'), 1200);
+      });
+    });
+
+    // Preset promo helpers
+    $(document).on('click', '.preset-promo', function() {
+      const t = $(this).data('text') || '';
+      if (!t) return;
+      $('#copy-promo').val(t).trigger('input');
     });
   });
 

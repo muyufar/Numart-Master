@@ -182,6 +182,16 @@ $columns = array(
       return "<span class='badge {$cls}' style='font-size:0.95rem;'>{$score}</span>";
     }
   ),
+  array(
+    'db' => 'barang_id', 'dt' => 13,
+    'formatter' => function($d, $row) {
+      $id = (int)$d;
+      $nama = htmlspecialchars($row['barang_nama'] ?? '', ENT_QUOTES, 'UTF-8');
+      return "<button type='button' class='btn btn-sm btn-primary btn-generate-copy' data-id='{$id}' data-nama='{$nama}'>
+                <i class='fas fa-pen-nib'></i> Generate
+              </button>";
+    }
+  ),
 );
 
 require 'aksi/ssp.php';
