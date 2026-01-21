@@ -695,7 +695,7 @@ if ($persediaan_akhir > 0) {
       <!-- LAPORAN -->
       <div class="card card-primary">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h3 class="card-title">Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></h3>
+          <h3 class="card-title text-bold text-white">Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></h3>
           <div class="card-tools">
             <button type="button" class="btn btn-success btn-sm" onclick="exportExcel()">
               <i class="fas fa-file-excel"></i> Export Excel
@@ -808,16 +808,16 @@ if ($persediaan_akhir > 0) {
           </table>
 
           <!-- Laba Bersih -->
-          <table class="table table-bordered mt-3">
+          <table class="table table-bordered">
             <thead>
-              <tr class="bg-success">
-                <th colspan="2" class="text-white">
+              <tr>
+                <th colspan="2"class="bg-primary text-white">
                   <?php
                   $section_number = 4;
                   if ($cabang == 0 && !empty($transfer_detail)) {
                     $section_number = 4;
                   }
-                  echo $section_number . '. Laba Bersih';
+                  echo $section_number . '. LABA BERSIH';
                   ?>
                 </th>
               </tr>
@@ -860,10 +860,10 @@ if ($persediaan_akhir > 0) {
 
           <!-- Persediaan Akhir Barang (untuk cabang selain 0) -->
           <?php if ($cabang != 0) : ?>
-          <table class="table table-bordered mt-3">
+          <table class="table table-bordered">
             <thead>
               <tr>
-                <th colspan="2" class="bg-secondary text-white">
+                <th colspan="2" class="bg-primary text-white">
                   <i class="fas fa-boxes"></i> PERSEDIAAN AKHIR BARANG
                 </th>
               </tr>
@@ -891,17 +891,17 @@ if ($persediaan_akhir > 0) {
 
           <!-- Pendapatan Lain (Bagi Hasil) -->
           <?php if ($cabang == 0 && !empty($pendapatan_lain_detail)) : ?>
-            <table class="table table-bordered mt-3">
+            <table class="table table-bordered">
               <thead>
-                <tr class="bg-primary">
-                  <th colspan="2" class="text-white">
+                <tr class="bg-primary text-white">
+                  <th colspan="2" class="bg-primary text-white">
                     <?php
                     $section_number_pendapatan = 5;
                     if ($cabang == 0 && !empty($transfer_detail)) {
                       $section_number_pendapatan = 5;
                     }
-                    echo $section_number_pendapatan . '. Pendapatan Lain';
-                    ?>
+                    echo $section_number_pendapatan . '. PENDAPATAN BAGI HASIL';
+                    ?> 
                   </th>
                 </tr>
               </thead>
@@ -965,7 +965,7 @@ if ($persediaan_akhir > 0) {
                 </td>
               </tr>
               <tr>
-                <td>Pendapatan Lain</td>
+                <td>Pendapatan Bagi Hasil</td>
                 <td class="text-right"><?= rupiah($pendapatan_lain_bagi_hasil) ?></td>
               </tr>
               <?php if ($beban_lain > 0) : ?>
@@ -987,7 +987,7 @@ if ($persediaan_akhir > 0) {
 
           <!--Transfer Stock-->
           <?php if ($cabang == 0 && !empty($transfer_detail)) : ?>
-            <table class="table table-bordered mt-3">
+            <table class="table table-bordered">
               <thead>
                 <tr>
                   <th colspan="2" class="bg-primary text-white">
@@ -996,7 +996,7 @@ if ($persediaan_akhir > 0) {
                     if (!empty($pendapatan_lain_detail)) {
                       $section_number_transfer = 7;
                     }
-                    echo $section_number_transfer . '. Total Transfer Stok (Dikirim oleh Cabang)';
+                    echo $section_number_transfer . '. TOTAL TRANSFER STOCK (Dikirim oleh Cabang)';
                     ?>
                   </th>
                 </tr>

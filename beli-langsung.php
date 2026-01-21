@@ -1321,7 +1321,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                   <div class="filter-customer">
                     <div class="form-group">
                       <label><i class="fa fa-users"></i> Tipe Customer</label>
-                      <select class="form-control pilihan-marketplace" name="tipe_customer" id="tipe_customer">
+                      <select class="form-control pilihan-marketplace select2bs4" name="tipe_customer" id="tipe_customer">
                         <option value="0" <?= $tipeHarga == 0 ? 'selected' : null ?>>Umum</option>
                         <option value="1" <?= $tipeHarga == 1 ? 'selected' : null ?>>Member Retail</option>
                         <option value="2" <?= $tipeHarga == 2 ? 'selected' : null ?>>Grosir</option>
@@ -1329,7 +1329,7 @@ if (isset($_POST["updateQtyPenjualan"])) {
                     </div>
                     <div class="form-group">
                       <label><i class="fa fa-user"></i> Customer <b style="color: #0d9488;"><?= $nameTipeHarga; ?></b></label>
-                      <select class="form-control pilihan-marketplace" required="" name="invoice_customer">
+                      <select class="form-control pilihan-marketplace select2bs4" required="" name="invoice_customer">
                         <!-- <option selected="selected" value="">Pilih Customer</option> -->
 
                         <?php if ($r != 1 && $tipeHarga < 2) { ?>

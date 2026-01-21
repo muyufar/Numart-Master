@@ -1547,26 +1547,10 @@ function updateStock($data)
 				error_log("Error inserting terlaris: " . $error_msg);
 			}
 			
-			// Update stok barang setelah penjualan
-			$barang_id = $id[$x];
-			$qty_terjual = $keranjang_qty[$x] * $keranjang_konversi_isi[$x];
-			
-			// Ambil stok saat ini
-			$query_stock = "SELECT barang_stock, barang_terjual FROM barang WHERE barang_id = $barang_id";
-			$result_stock = mysqli_query($conn, $query_stock);
-			if ($result_stock && mysqli_num_rows($result_stock) > 0) {
-				$row_stock = mysqli_fetch_assoc($result_stock);
-				$barang_stock_sekarang = floatval($row_stock['barang_stock']);
-				$barang_terjual_sekarang = floatval($row_stock['barang_terjual']);
-				
-				// Kurangi stok dan tambahkan ke terjual
-				$barang_stock_baru = $barang_stock_sekarang - $qty_terjual;
-				$barang_terjual_baru = $barang_terjual_sekarang + $qty_terjual;
-				
-				// Update stok barang
-				$query_update_stock = "UPDATE barang SET barang_stock = $barang_stock_baru, barang_terjual = $barang_terjual_baru WHERE barang_id = $barang_id";
-				mysqli_query($conn, $query_update_stock);
-			}
+			// NOTE:
+			// Stok barang TIDAK di-update di sini.
+			// Di beberapa instalasi, stok sudah di-handle otomatis oleh DB (mis. trigger saat INSERT penjualan).
+			// Jika kita update stok lagi di PHP, stok akan terpotong 2x (contoh: 240 -> -240).
 			
 			// Update status barang_sn jika menggunakan SN
 			if ($keranjang_barang_option_sn[$x] > 0 && !empty($keranjang_barang_sn_id[$x])) {

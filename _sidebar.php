@@ -513,6 +513,12 @@
                     </a>
                   </li>
                   <li class="nav-item">
+                    <a href="produk-analisa" class="nav-link">
+                      <i class="far fa-dot-circle nav-icon"></i>
+                      <p>Analisa Produk (Promo)</p>
+                    </a>
+                  </li>
+                  <li class="nav-item">
                     <a href="edit-transaksi" class="nav-link">
                       <i class="far fa-dot-circle nav-icon"></i>
                       <p>Retur</p>
