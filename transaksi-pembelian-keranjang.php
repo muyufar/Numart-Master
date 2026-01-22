@@ -146,7 +146,7 @@
               
        
             <div class="btn-transaksi">
-                <form role="form" action="" method="POST">
+                <form role="form" action="transaksi-pembelian.php" method="POST">
                   <div class="row">
                     <div class="col-md-6 col-lg-7">
                         <div class="filter-customer">
@@ -268,16 +268,16 @@
 
                                 <?php if ( $in != null ) { ?>
                                   <?php if ( $jmlKeranjang < 1 ) { ?>
-                                  <button class="btn btn-primary" type="submit" name="updateStock">Simpan Payment <i class="fa fa-shopping-cart"></i></button>
+                                  <button class="btn btn-primary" type="submit" name="updateStock">Simpan Pembelian <i class="fa fa-shopping-cart"></i></button>
                                   <?php } ?>
 
                                   <?php if ( $jmlKeranjang > 0 ) { ?>
-                                  <a class="btn btn-default btn-disabled" type="" name="">Simpan Payment <i class="fa fa-shopping-cart"></i></a>
+                                  <a class="btn btn-default btn-disabled" type="" name="">Simpan Pembelian<i class="fa fa-shopping-cart"></i></a>
                                   <?php } ?>
                                 <?php } ?>
 
                                 <?php if ( $in == null ) { ?>
-                                  <a class="btn btn-default" type="" name="" disabled>Simpan Payment <i class="fa fa-shopping-cart"></i></a>
+                                  <a class="btn btn-default" type="" name="" disabled>Simpan Pembelian <i class="fa fa-shopping-cart"></i></a>
                                 <?php } ?>
 
                                 </div>
