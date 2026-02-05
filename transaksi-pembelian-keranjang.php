@@ -3,11 +3,13 @@
   include '_header-artibut.php';
 
   // Ambil data berdasarkan tipe cash atau hutang
-  $r = $_GET['r'];
+  $r = isset($_GET['r']) ? $_GET['r'] : '';
 ?>
 
 	<?php  
       $userId = $_SESSION['user_id'];
+      // Update keranjang yang harga beli masih 0 dari tabel barang, agar hidden form dapat nilai benar
+      mysqli_query($conn, "UPDATE keranjang_pembelian kp INNER JOIN barang b ON kp.barang_id = b.barang_id SET kp.keranjang_harga = b.barang_harga_beli WHERE (kp.keranjang_harga = 0 OR kp.keranjang_harga IS NULL) AND kp.keranjang_id_kasir = $userId AND kp.keranjang_cabang = $sessionCabang");
       $keranjang = query("SELECT * FROM keranjang_pembelian WHERE keranjang_id_kasir = $userId && keranjang_cabang = $sessionCabang ORDER BY keranjang_id ASC");
 
       $pembelian = mysqli_query($conn,"select * from invoice_pembelian");
@@ -104,31 +106,39 @@
                   $stockParent = mysqli_query( $conn, "select barang_stock, barang_harga_beli from barang where barang_id = '".$bik."'");
                   $brg = mysqli_fetch_array($stockParent); 
                   $tb_brg = $brg['barang_stock'];
-                      if ($row['keranjang_harga'] == 0) {
-          mysqli_query($conn, "UPDATE keranjang_pembelian SET keranjang_harga = {$brg['barang_harga_beli']} WHERE keranjang_id = {$row['keranjang_id']}");
-          $row['keranjang_harga'] = $brg['barang_harga_beli']; // Update nilai lokal
-      }
-                 $sub_total = $row['keranjang_harga'] * $row['keranjang_qty'];
+                  // Harga 0 sudah di-update di awal; tetap fallback lokal jika ada edge case
+                  if (isset($row['keranjang_harga']) && (float)$row['keranjang_harga'] <= 0 && !empty($brg['barang_harga_beli'])) {
+                      $row['keranjang_harga'] = $brg['barang_harga_beli'];
+                  }
+                 $sub_total = (float)$row['keranjang_harga'] * (float)$row['keranjang_qty'];
         
                   if ( $row['keranjang_id_kasir'] === $_SESSION['user_id'] ) {
                   $total += $sub_total;
                 ?>
-               <tr>
+               <tr class="row-keranjang-pembelian" data-qty="<?= (int)$row['keranjang_qty']; ?>" data-harga="<?= (float)$row['keranjang_harga']; ?>">
     <td><?= $i; ?></td>
     <td><?= $row['keranjang_nama']; ?></td>
-    <td>
-        Rp. <?= number_format($row['keranjang_harga'], 0, ',', '.'); ?>
-    </td>
-    <td style="text-align: center; width: 11%;">
-        <form role="form" action="" method="post">
+    <td style="text-align: center; width: 14%;">
+        <form role="form" action="transaksi-pembelian.php<?= isset($r) && $r !== '' ? '?r=' . $r : ''; ?>" method="post" class="form-update-harga">
+            <input type="hidden" name="update_harga" value="1">
+            <input type="hidden" name="r" value="<?= isset($r) ? htmlspecialchars($r) : ''; ?>">
             <input type="hidden" name="keranjang_id" value="<?= $row['keranjang_id']; ?>">
-            <input type="number" min="1" name="keranjang_qty" value="<?= $row['keranjang_qty']; ?>" style="text-align: center; width: 60%;">
-            <button class="btn btn-primary" type="submit" name="update">
+            <input type="number" min="0" step="0.1" name="keranjang_harga" class="input-harga-beli" value="<?= number_format((float)$row['keranjang_harga'], 1, '.', ''); ?>" style="text-align: center; width: 65%;">
+            <button class="btn btn-primary" type="submit" name="update_harga_btn" title="Update Harga">
                 <i class="fa fa-refresh"></i>
             </button>
         </form>
     </td>
-    <td>Rp. <?= number_format($sub_total, 0, ',', '.'); ?></td>
+    <td style="text-align: center; width: 11%;">
+        <form role="form" action="transaksi-pembelian.php<?= isset($r) && $r !== '' ? '?r=' . $r : ''; ?>" method="post" class="form-update-qty">
+            <input type="hidden" name="keranjang_id" value="<?= $row['keranjang_id']; ?>">
+            <input type="number" min="0.1" step="0.1" name="keranjang_qty" class="input-qty-pembelian" value="<?= number_format((float)$row['keranjang_qty'], 1, '.', ''); ?>" style="text-align: center; width: 60%;">
+            <button class="btn btn-primary" type="submit" name="update" title="Update QTY">
+                <i class="fa fa-refresh"></i>
+            </button>
+        </form>
+    </td>
+    <td class="row-subtotal">Rp. <?= number_format($sub_total, 1, ',', '.'); ?></td>
     <td style="text-align: center; width: 6%;">
         <a href="transaksi-pembelian-delete?id=<?= $row['keranjang_id']; ?>&r=<?= $r; ?>" title="Delete Data" onclick="return confirm('Yakin dihapus ?')">
             <button class="btn btn-danger" type="submit" name="hapus">
@@ -189,7 +199,7 @@
                                  <!-- Rp. <?php echo number_format($total, 0, ',', '.'); ?> -->
                                  <span>Rp. </span>
                                  <span>
-                                    <input type="text" name="invoice_total" id="angka2" class="b2" onkeyup="hitung2();" value="<?= $total; ?>" onkeyup="return isNumberKey(event)" size="10" readonly>
+                                    <input type="text" name="invoice_total" id="angka2" class="b2" onkeyup="hitung2();" value="<?= number_format($total, 1, '.', ''); ?>" onkeyup="return isNumberKey(event)" size="10" readonly>
                                  </span>
                                  
                               </td>
@@ -249,7 +259,7 @@
                                   <input type="hidden" name="pembelian_invoice[]" value="<?= $in; ?>">
                                   <input type="hidden" name="pembelian_invoice_parent[]" value="<?= $inDelete; ?>">
                                   <input type="hidden" name="pembelian_date[]" value="<?= date("Y-m-d") ?>">
-                                  <input type="hidden" name="barang_harga_beli[]" value="<?= $stk['keranjang_harga']; ?>">
+                                  <input type="hidden" name="barang_harga_beli[]" value="<?= number_format((float)$stk['keranjang_harga'], 1, '.', ''); ?>">
                                   <input type="hidden" name="pembelian_cabang[]" value="<?= $sessionCabang; ?>">
                                 <?php } ?>
                                 <?php endforeach; ?>  
@@ -316,6 +326,35 @@
   	 $('.btn-disabled').click(function(){
 	  	alert("Harga Beli Masih ada yang bernilai kosong (Rp.0) !! Segera Update Harga Pembelian Barang per Produk ..");
 	  });
+
+    // Hitung ulang subtotal per baris dan total (decimal 11,1)
+    function formatRp(num) {
+      var n = parseFloat(num);
+      if (isNaN(n)) n = 0;
+      return 'Rp. ' + n.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    }
+    function updateRowSubtotal($row) {
+      var qty = parseFloat($row.find('.input-qty-pembelian').val()) || 0;
+      var harga = parseFloat($row.find('.input-harga-beli').val()) || 0;
+      var sub = Math.round(qty * harga * 10) / 10;
+      $row.find('.row-subtotal').text(formatRp(sub));
+      updateGrandTotal();
+    }
+    function updateGrandTotal() {
+      var total = 0;
+      $('#example1 tbody tr.row-keranjang-pembelian').each(function() {
+        var qty = parseFloat($(this).find('.input-qty-pembelian').val()) || 0;
+        var harga = parseFloat($(this).find('.input-harga-beli').val()) || 0;
+        total += qty * harga;
+      });
+      total = Math.round(total * 10) / 10;
+      $('#angka2').val(total.toFixed(1));
+      if (typeof hitung2 === 'function') hitung2();
+    }
+    $('#example1').on('keyup change', '.input-qty-pembelian, .input-harga-beli', function() {
+      var $row = $(this).closest('tr');
+      updateRowSubtotal($row);
+    });
   });
 </script>
 
