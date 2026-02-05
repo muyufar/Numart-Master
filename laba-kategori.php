@@ -38,15 +38,32 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
       <div class="card card-primary">
         <div class="card-header d-flex align-content-center">
           <h3 class="card-title">Data Kategori Laba</h3>
-          <button
-            id="btn-add-modal"
-            class="btn btn-success btn-sm ml-auto d-flex justify-content-around align-content-center"
-            data-toggle="modal"
-            data-target="#modal-add"
-            style="gap: 0.2rem;">
-            <i class="bi bi-plus"></i>
-            <span>Tambah</span>
-          </button>
+          <div class="ml-auto d-flex" style="gap: 0.5rem;">
+            <?php
+            // Cek apakah ada data dengan kode_akun dan name null
+            $check_null = query("SELECT COUNT(*) as jumlah FROM laba_kategori WHERE (kode_akun IS NULL OR kode_akun = '' OR kode_akun = '-') AND (name IS NULL OR name = '' OR name = '-')");
+            $jumlah_null = $check_null[0]['jumlah'] ?? 0;
+            if ($jumlah_null > 0):
+            ?>
+            <a href="hapus-akun-null.php" class="btn btn-danger btn-sm d-flex justify-content-around align-content-center" style="gap: 0.2rem;">
+              <i class="fa fa-trash"></i>
+              <span>Hapus Akun Null (<?php echo $jumlah_null; ?>)</span>
+            </a>
+            <?php endif; ?>
+            <a href="recalculate-laba-kategori.php" class="btn btn-info btn-sm d-flex justify-content-around align-content-center" style="gap: 0.2rem;">
+              <i class="fa fa-calculator"></i>
+              <span>Hitung Ulang Saldo</span>
+            </a>
+            <button
+              id="btn-add-modal"
+              class="btn btn-success btn-sm d-flex justify-content-around align-content-center"
+              data-toggle="modal"
+              data-target="#modal-add"
+              style="gap: 0.2rem;">
+              <i class="bi bi-plus"></i>
+              <span>Tambah</span>
+            </button>
+          </div>
         </div>
         <div class="card-body">
           <!-- Filter dan Pencarian -->

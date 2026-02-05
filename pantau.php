@@ -75,6 +75,36 @@ function getOmsetMonthlySeries($conn, $cabang, $year)
     return $series;
 }
 
+// Omset per bulan untuk rentang tanggal (bisa lintas tahun)
+function getOmsetMonthlySeriesForRange($conn, $cabang, $startDate, $endDate)
+{
+    $sql = "SELECT YEAR(invoice_date) as y, MONTH(invoice_date) as m, COALESCE(SUM(invoice_sub_total), 0) AS total 
+            FROM invoice 
+            WHERE invoice_cabang = ? AND invoice_date BETWEEN ? AND ? 
+            GROUP BY YEAR(invoice_date), MONTH(invoice_date)";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "iss", $cabang, $startDate, $endDate);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $map = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $key = (int)$row['y'] . '-' . (int)$row['m'];
+        $map[$key] = (int)$row['total'];
+    }
+    $series = [];
+    $cursor = new DateTime($startDate);
+    $cursor->modify('first day of this month');
+    $endObj = new DateTime($endDate);
+    $endObj->modify('first day of this month');
+    while ($cursor <= $endObj) {
+        $key = $cursor->format('Y') . '-' . $cursor->format('n');
+        $val = $map[$key] ?? 0;
+        $series[] = $val > 0 ? $val : null;
+        $cursor->modify('+1 month');
+    }
+    return $series;
+}
+
 function getOmsetYearlySeries($conn, $cabang, $startYear, $endYear)
 {
     $sql = "SELECT YEAR(invoice_date) as y, COALESCE(SUM(invoice_sub_total), 0) AS total 
@@ -122,6 +152,8 @@ $endDateInput = $_POST['end_date'] ?? null;
 $cabangMap = [
     'nugrosir' => 0,
     'numart_dukun' => 1,
+    'numart_tegalrejo' => 5,
+    'pondok_pakis' => 2,
     'pondok_srumbung' => 3,
     'baqnu' => 4,
 ];
@@ -172,30 +204,66 @@ if ($granularity === 'daily') {
         $ci++;
     }
 } elseif ($granularity === 'monthly') {
-    $year = (int)date('Y', strtotime($anchorDate));
-    $labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    $startDate = "$year-01-01";
-    $endDate = "$year-12-31";
+    $namaBulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    if ($startDateInput && $endDateInput) {
+        $cursor = new DateTime($startDateInput);
+        $cursor->modify('first day of this month');
+        $startDate = $cursor->format('Y-m-d');
+        $endObj = new DateTime($endDateInput);
+        $endObj->modify('last day of this month');
+        $endDate = $endObj->format('Y-m-d');
+        $endForLabel = new DateTime($endDate);
+        $endForLabel->modify('first day of this month');
+        while ($cursor <= $endForLabel) {
+            $labels[] = $namaBulan[(int)$cursor->format('n') - 1] . ' ' . $cursor->format('y');
+            $cursor->modify('+1 month');
+        }
+        foreach ($cabangMap as $key => $cab) {
+            $series = getOmsetMonthlySeriesForRange($conn, $cab, $startDate, $endDate);
+            $total = array_sum(array_map(function ($v) {
+                return $v ?? 0;
+            }, $series));
+            $extra = ($key === 'baqnu') ? getPenjualanBarangSum($conn, $cab, $startDate, $endDate) : null;
 
-    foreach ($cabangMap as $key => $cab) {
-        $series = getOmsetMonthlySeries($conn, $cab, $year);
-        $total = array_sum(array_map(function ($v) {
-            return $v ?? 0;
-        }, $series));
-        $extra = ($key === 'baqnu') ? getPenjualanBarangSum($conn, $cab, $startDate, $endDate) : null;
+            $datasets[] = [
+                'name' => ucwords(str_replace('_', ' ', $key)),
+                'data' => $series,
+            ];
 
-        $datasets[] = [
-            'name' => ucwords(str_replace('_', ' ', $key)),
-            'data' => $series,
-        ];
+            $cards[$key] = [
+                'label' => ucwords(str_replace('_', ' ', $key)),
+                'total' => $total,
+                'extra' => $extra
+            ];
+            $totalAll += $total;
+            $ci++;
+        }
+    } else {
+        $year = (int)date('Y', strtotime($anchorDate));
+        $labels = $namaBulan;
+        $startDate = "$year-01-01";
+        $endDate = "$year-12-31";
 
-        $cards[$key] = [
-            'label' => ucwords(str_replace('_', ' ', $key)),
-            'total' => $total,
-            'extra' => $extra
-        ];
-        $totalAll += $total;
-        $ci++;
+        foreach ($cabangMap as $key => $cab) {
+            $series = getOmsetMonthlySeries($conn, $cab, $year);
+            $total = array_sum(array_map(function ($v) {
+                return $v ?? 0;
+            }, $series));
+            $extra = ($key === 'baqnu') ? getPenjualanBarangSum($conn, $cab, $startDate, $endDate) : null;
+
+            $datasets[] = [
+                'name' => ucwords(str_replace('_', ' ', $key)),
+                'data' => $series,
+            ];
+
+            $cards[$key] = [
+                'label' => ucwords(str_replace('_', ' ', $key)),
+                'total' => $total,
+                'extra' => $extra
+            ];
+            $totalAll += $total;
+            $ci++;
+        }
     }
 } else { // yearly
     $endYear = (int)date('Y', strtotime($anchorDate));

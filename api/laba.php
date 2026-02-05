@@ -562,8 +562,51 @@ function handlePost() {
     if (mysqli_query($conn, $query)) {
         // Update saldo di laba_kategori untuk double-entry system
         if ($has_new_columns && $akun_debit && $akun_kredit && $total > 0) {
-            updateSaldoAkun($conn, $akun_debit, $akun_kredit, $total, $cabang, 'debit');
-            updateSaldoAkun($conn, $akun_kredit, $akun_debit, $total, $cabang, 'kredit');
+            // Cek apakah ini transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+            $akun_debit_info = getAkunInfoForTransfer($conn, $akun_debit);
+            $akun_kredit_info = getAkunInfoForTransfer($conn, $akun_kredit);
+            
+            $is_transfer_to_bank = false;
+            if ($akun_debit_info && $akun_kredit_info) {
+                $kode_debit = $akun_debit_info['kode_akun'] ?? '';
+                $kode_kredit = $akun_kredit_info['kode_akun'] ?? '';
+                
+                // Cek jika transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                if (($kode_debit == '1-1100' && $kode_kredit == '1-1152' && $cabang != 0) ||
+                    ($kode_kredit == '1-1100' && $kode_debit == '1-1152' && $cabang != 0) ||
+                    ($jenis_transaksi == 'transfer_uang' && 
+                     (($kode_debit == '1-1100' && $kode_kredit == '1-1152') || 
+                      ($kode_kredit == '1-1100' && $kode_debit == '1-1152')) && $cabang != 0)) {
+                    $is_transfer_to_bank = true;
+                }
+            }
+            
+            if ($is_transfer_to_bank) {
+                // Transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                // 1. Update saldo normal (debit dan kredit)
+                updateSaldoAkun($conn, $akun_debit, $akun_kredit, $total, $cabang, 'debit');
+                updateSaldoAkun($conn, $akun_kredit, $akun_debit, $total, $cabang, 'kredit');
+                
+                // 2. Tambahkan juga ke 1-1153 (cabang 0)
+                // Cari ID akun 1-1153 untuk cabang 0
+                $query_1153 = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1153' AND (cabang = 0 OR cabang IS NULL) LIMIT 1";
+                $result_1153 = mysqli_query($conn, $query_1153);
+                if ($result_1153 && mysqli_num_rows($result_1153) > 0) {
+                    $row_1153 = mysqli_fetch_assoc($result_1153);
+                    $akun_1153_id = intval($row_1153['id']);
+                    // Tambah ke 1-1153 (cabang 0) sebagai debit (menambah aktiva)
+                    updateSaldoAkun($conn, $akun_1153_id, $akun_kredit, $total, 0, 'debit');
+                } else {
+                    // Buat akun 1-1153 jika belum ada
+                    $insert_1153 = "INSERT INTO laba_kategori (name, kode_akun, kategori, tipe_akun, saldo, cabang) 
+                                    VALUES ('Kas Bank BRI R Transaksi 0251', '1-1153', 'aktiva', 'debit', $total, 0)";
+                    mysqli_query($conn, $insert_1153);
+                }
+            } else {
+                // Transaksi biasa
+                updateSaldoAkun($conn, $akun_debit, $akun_kredit, $total, $cabang, 'debit');
+                updateSaldoAkun($conn, $akun_kredit, $akun_debit, $total, $cabang, 'kredit');
+            }
         } else if ($kategori && $jumlah > 0) {
             // Backward compatibility: update saldo untuk single-entry (kategori saja)
             updateSaldoAkunSingle($conn, $kategori, $jumlah, $tipe, $cabang);
@@ -580,6 +623,23 @@ function handlePost() {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Gagal menyimpan data: ' . mysqli_error($conn)]);
     }
+}
+
+/**
+ * Fungsi helper untuk mendapatkan info akun berdasarkan ID (untuk transfer)
+ * @param mysqli $conn Database connection
+ * @param int $akun_id ID akun
+ * @return array|null Info akun atau null jika tidak ditemukan
+ */
+function getAkunInfoForTransfer($conn, $akun_id) {
+    $query = "SELECT id, kode_akun, name, kategori, tipe_akun, cabang FROM laba_kategori WHERE id = " . (int)$akun_id;
+    $result = mysqli_query($conn, $query);
+    
+    if ($result && mysqli_num_rows($result) > 0) {
+        return mysqli_fetch_assoc($result);
+    }
+    
+    return null;
 }
 
 /**
@@ -954,9 +1014,47 @@ function handlePut() {
             
             // Reverse saldo lama
             if ($old_has_new_columns && $old_akun_debit && $old_akun_kredit && $old_total > 0) {
-                // Reverse double-entry
-                updateSaldoAkun($conn, $old_akun_debit, $old_akun_kredit, $old_total, $old_cabang, 'kredit'); // Reverse debit
-                updateSaldoAkun($conn, $old_akun_kredit, $old_akun_debit, $old_total, $old_cabang, 'debit'); // Reverse kredit
+                // Cek apakah ini transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                $old_akun_debit_info = getAkunInfoForTransfer($conn, $old_akun_debit);
+                $old_akun_kredit_info = getAkunInfoForTransfer($conn, $old_akun_kredit);
+                $old_jenis_transaksi = $old_data['jenis_transaksi'] ?? null;
+                
+                $is_transfer_to_bank = false;
+                if ($old_akun_debit_info && $old_akun_kredit_info) {
+                    $old_kode_debit = $old_akun_debit_info['kode_akun'] ?? '';
+                    $old_kode_kredit = $old_akun_kredit_info['kode_akun'] ?? '';
+                    
+                    // Cek jika transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                    if (($old_kode_debit == '1-1100' && $old_kode_kredit == '1-1152' && $old_cabang != 0) ||
+                        ($old_kode_kredit == '1-1100' && $old_kode_debit == '1-1152' && $old_cabang != 0) ||
+                        ($old_jenis_transaksi == 'transfer_uang' && 
+                         (($old_kode_debit == '1-1100' && $old_kode_kredit == '1-1152') || 
+                          ($old_kode_kredit == '1-1100' && $old_kode_debit == '1-1152')) && $old_cabang != 0)) {
+                        $is_transfer_to_bank = true;
+                    }
+                }
+                
+                if ($is_transfer_to_bank) {
+                    // Reverse transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                    // 1. Reverse saldo normal (debit dan kredit)
+                    updateSaldoAkun($conn, $old_akun_debit, $old_akun_kredit, $old_total, $old_cabang, 'kredit'); // Reverse debit
+                    updateSaldoAkun($conn, $old_akun_kredit, $old_akun_debit, $old_total, $old_cabang, 'debit'); // Reverse kredit
+                    
+                    // 2. Reverse juga dari 1-1153 (cabang 0)
+                    // Cari ID akun 1-1153 untuk cabang 0
+                    $query_1153 = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1153' AND (cabang = 0 OR cabang IS NULL) LIMIT 1";
+                    $result_1153 = mysqli_query($conn, $query_1153);
+                    if ($result_1153 && mysqli_num_rows($result_1153) > 0) {
+                        $row_1153 = mysqli_fetch_assoc($result_1153);
+                        $akun_1153_id = intval($row_1153['id']);
+                        // Reverse dari 1-1153 (cabang 0) sebagai kredit (mengurangi aktiva)
+                        updateSaldoAkun($conn, $akun_1153_id, $old_akun_kredit, $old_total, 0, 'kredit');
+                    }
+                } else {
+                    // Reverse double-entry biasa
+                    updateSaldoAkun($conn, $old_akun_debit, $old_akun_kredit, $old_total, $old_cabang, 'kredit'); // Reverse debit
+                    updateSaldoAkun($conn, $old_akun_kredit, $old_akun_debit, $old_total, $old_cabang, 'debit'); // Reverse kredit
+                }
             } else if ($old_kategori && $old_jumlah > 0) {
                 // Reverse single-entry
                 updateSaldoAkunSingle($conn, $old_kategori, $old_jumlah, ($old_tipe == 0 ? 1 : 0), $old_cabang); // Reverse tipe
@@ -965,8 +1063,51 @@ function handlePut() {
         
         // Apply saldo baru
         if ($has_new_columns && $akun_debit && $akun_kredit && $total > 0) {
-            updateSaldoAkun($conn, $akun_debit, $akun_kredit, $total, $cabang, 'debit');
-            updateSaldoAkun($conn, $akun_kredit, $akun_debit, $total, $cabang, 'kredit');
+            // Cek apakah ini transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+            $akun_debit_info = getAkunInfoForTransfer($conn, $akun_debit);
+            $akun_kredit_info = getAkunInfoForTransfer($conn, $akun_kredit);
+            
+            $is_transfer_to_bank = false;
+            if ($akun_debit_info && $akun_kredit_info) {
+                $kode_debit = $akun_debit_info['kode_akun'] ?? '';
+                $kode_kredit = $akun_kredit_info['kode_akun'] ?? '';
+                
+                // Cek jika transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                if (($kode_debit == '1-1100' && $kode_kredit == '1-1152' && $cabang != 0) ||
+                    ($kode_kredit == '1-1100' && $kode_debit == '1-1152' && $cabang != 0) ||
+                    ($jenis_transaksi == 'transfer_uang' && 
+                     (($kode_debit == '1-1100' && $kode_kredit == '1-1152') || 
+                      ($kode_kredit == '1-1100' && $kode_debit == '1-1152')) && $cabang != 0)) {
+                    $is_transfer_to_bank = true;
+                }
+            }
+            
+            if ($is_transfer_to_bank) {
+                // Transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                // 1. Update saldo normal (debit dan kredit)
+                updateSaldoAkun($conn, $akun_debit, $akun_kredit, $total, $cabang, 'debit');
+                updateSaldoAkun($conn, $akun_kredit, $akun_debit, $total, $cabang, 'kredit');
+                
+                // 2. Tambahkan juga ke 1-1153 (cabang 0)
+                // Cari ID akun 1-1153 untuk cabang 0
+                $query_1153 = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1153' AND (cabang = 0 OR cabang IS NULL) LIMIT 1";
+                $result_1153 = mysqli_query($conn, $query_1153);
+                if ($result_1153 && mysqli_num_rows($result_1153) > 0) {
+                    $row_1153 = mysqli_fetch_assoc($result_1153);
+                    $akun_1153_id = intval($row_1153['id']);
+                    // Tambah ke 1-1153 (cabang 0) sebagai debit (menambah aktiva)
+                    updateSaldoAkun($conn, $akun_1153_id, $akun_kredit, $total, 0, 'debit');
+                } else {
+                    // Buat akun 1-1153 jika belum ada
+                    $insert_1153 = "INSERT INTO laba_kategori (name, kode_akun, kategori, tipe_akun, saldo, cabang) 
+                                    VALUES ('Kas Bank BRI R Transaksi 0251', '1-1153', 'aktiva', 'debit', $total, 0)";
+                    mysqli_query($conn, $insert_1153);
+                }
+            } else {
+                // Transaksi biasa
+                updateSaldoAkun($conn, $akun_debit, $akun_kredit, $total, $cabang, 'debit');
+                updateSaldoAkun($conn, $akun_kredit, $akun_debit, $total, $cabang, 'kredit');
+            }
         } else if ($kategori && $jumlah > 0) {
             updateSaldoAkunSingle($conn, $kategori, $jumlah, $tipe, $cabang);
         }
@@ -1125,9 +1266,47 @@ function handleDelete() {
         
         // Reverse saldo setelah delete
         if ($has_new_columns && $old_akun_debit && $old_akun_kredit && $old_total > 0) {
-            // Reverse double-entry
-            updateSaldoAkun($conn, $old_akun_debit, $old_akun_kredit, $old_total, $old_cabang, 'kredit'); // Reverse debit
-            updateSaldoAkun($conn, $old_akun_kredit, $old_akun_debit, $old_total, $old_cabang, 'debit'); // Reverse kredit
+            // Cek apakah ini transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+            $old_akun_debit_info = getAkunInfoForTransfer($conn, $old_akun_debit);
+            $old_akun_kredit_info = getAkunInfoForTransfer($conn, $old_akun_kredit);
+            $old_jenis_transaksi = $old_data['jenis_transaksi'] ?? null;
+            
+            $is_transfer_to_bank = false;
+            if ($old_akun_debit_info && $old_akun_kredit_info) {
+                $old_kode_debit = $old_akun_debit_info['kode_akun'] ?? '';
+                $old_kode_kredit = $old_akun_kredit_info['kode_akun'] ?? '';
+                
+                // Cek jika transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                if (($old_kode_debit == '1-1100' && $old_kode_kredit == '1-1152' && $old_cabang != 0) ||
+                    ($old_kode_kredit == '1-1100' && $old_kode_debit == '1-1152' && $old_cabang != 0) ||
+                    ($old_jenis_transaksi == 'transfer_uang' && 
+                     (($old_kode_debit == '1-1100' && $old_kode_kredit == '1-1152') || 
+                      ($old_kode_kredit == '1-1100' && $old_kode_debit == '1-1152')) && $old_cabang != 0)) {
+                    $is_transfer_to_bank = true;
+                }
+            }
+            
+            if ($is_transfer_to_bank) {
+                // Reverse transfer dari 1-1100 ke 1-1152 untuk cabang selain 0
+                // 1. Reverse saldo normal (debit dan kredit)
+                updateSaldoAkun($conn, $old_akun_debit, $old_akun_kredit, $old_total, $old_cabang, 'kredit'); // Reverse debit
+                updateSaldoAkun($conn, $old_akun_kredit, $old_akun_debit, $old_total, $old_cabang, 'debit'); // Reverse kredit
+                
+                // 2. Reverse juga dari 1-1153 (cabang 0)
+                // Cari ID akun 1-1153 untuk cabang 0
+                $query_1153 = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1153' AND (cabang = 0 OR cabang IS NULL) LIMIT 1";
+                $result_1153 = mysqli_query($conn, $query_1153);
+                if ($result_1153 && mysqli_num_rows($result_1153) > 0) {
+                    $row_1153 = mysqli_fetch_assoc($result_1153);
+                    $akun_1153_id = intval($row_1153['id']);
+                    // Reverse dari 1-1153 (cabang 0) sebagai kredit (mengurangi aktiva)
+                    updateSaldoAkun($conn, $akun_1153_id, $old_akun_kredit, $old_total, 0, 'kredit');
+                }
+            } else {
+                // Reverse double-entry biasa
+                updateSaldoAkun($conn, $old_akun_debit, $old_akun_kredit, $old_total, $old_cabang, 'kredit'); // Reverse debit
+                updateSaldoAkun($conn, $old_akun_kredit, $old_akun_debit, $old_total, $old_cabang, 'debit'); // Reverse kredit
+            }
         } else if ($old_kategori && $old_jumlah > 0) {
             // Reverse single-entry
             updateSaldoAkunSingle($conn, $old_kategori, $old_jumlah, ($old_tipe == 0 ? 1 : 0), $old_cabang); // Reverse tipe
