@@ -5,15 +5,22 @@
 ?>
 
 <?php  
-  // ambil data di URL
-  $id = $_GET['no'];
+  // ambil data di URL (pakai string agar no panjang seperti 202602044219160 tidak overflow)
+  $id = isset($_GET['no']) ? trim($_GET['no']) : '';
 
-  // query data mahasiswa berdasarkan id
-  $invoice = query("SELECT * FROM invoice_pembelian WHERE pembelian_invoice_parent = $id && invoice_pembelian_cabang = $sessionCabang ")[0];
-  $noInvoice = $invoice['pembelian_invoice'];
+  if ( $id === '' ) {
+    header("location: pembelian");
+    exit;
+  }
+  $id_esc = mysqli_real_escape_string($conn, $id);
+
+  // query data invoice berdasarkan pembelian_invoice_parent (no = id transaksi)
+  $invoice = query("SELECT * FROM invoice_pembelian WHERE pembelian_invoice_parent = '$id_esc' AND invoice_pembelian_cabang = $sessionCabang LIMIT 1")[0] ?? null;
+  $noInvoice = $invoice ? $invoice['pembelian_invoice'] : null;
 
   if ( $invoice == null ) {
     header("location: pembelian");
+    exit;
   }
 ?>
 
@@ -155,28 +162,32 @@
                       </thead>
                       <tbody>
                       <?php 
-                        $invoice1 = $id;
-  	                  $i = 1; 
-  	                  $queryProduct = $conn->query("SELECT pembelian.pembelian_id, barang.barang_id, barang.barang_nama, pembelian.barang_harga_beli, pembelian.barang_qty, pembelian.pembelian_invoice, pembelian.pembelian_invoice_parent, pembelian.pembelian_cabang
+                        // Data barang di invoice = dari transaksi (tabel pembelian): harga beli & qty terbaru dari transaksi
+  	                  $i = 1;
+  	                  $total_dari_transaksi = 0;
+  	                  $queryProduct = $conn->query("SELECT pembelian.pembelian_id, barang.barang_id, barang.barang_nama, pembelian.barang_harga_beli AS harga_beli_transaksi, barang.barang_harga_beli AS harga_beli_barang, pembelian.barang_qty, pembelian.pembelian_invoice, pembelian.pembelian_invoice_parent, pembelian.pembelian_cabang
   	                             FROM pembelian 
   	                             JOIN barang ON pembelian.barang_id = barang.barang_id
-  	                             WHERE pembelian_invoice_parent = $invoice1 && pembelian_cabang = '".$sessionCabang."'
-  	                             ORDER BY pembelian_id DESC
+  	                             WHERE pembelian.pembelian_invoice_parent = '".$id_esc."' AND pembelian.pembelian_cabang = '".$sessionCabang."'
+  	                             ORDER BY pembelian.pembelian_id ASC
   	                             ");
   	                  while ($rowProduct = mysqli_fetch_array($queryProduct)) {
+  	                    // Harga beli & qty dari transaksi (pembelian)
+  	                    $harga_beli = (float)$rowProduct['harga_beli_transaksi'];
+  	                    if ($harga_beli <= 0) {
+  	                      $harga_beli = (float)$rowProduct['harga_beli_barang'];
+  	                    }
+  	                    $qty = (float)$rowProduct['barang_qty'];
+  	                    $subTotal = round($harga_beli * $qty, 1);
+  	                    $total_dari_transaksi += $subTotal;
   	                ?>
   	                
                       <tr>
                         <td><?= $i; ?></td>
                         <td><?= $rowProduct['barang_nama']; ?></td>
-                        <td><?= $rowProduct['barang_harga_beli']; ?></td>
-                        <td><?= $rowProduct['barang_qty']; ?></td>
-                        <td>
-                        	<?php  
-                        		$subTotal = $rowProduct['barang_qty'] * $rowProduct['barang_harga_beli'];
-                        		echo($subTotal);
-                        	?>
-                        </td>
+                        <td>Rp. <?= number_format($harga_beli, 1, ',', '.'); ?></td>
+                        <td><?= number_format($qty, 1, ',', '.'); ?></td>
+                        <td>Rp. <?= number_format($subTotal, 1, ',', '.'); ?></td>
                       </tr>
                       <?php $i++; ?>
                   	<?php } ?>
@@ -198,7 +209,7 @@
                     <table class="table">
                       <tr>
                         <th style="width:50%">Total:</th>
-                        <td>Rp. <?= number_format($invoice['invoice_total'], 0, ',', '.'); ?></td>
+                        <td>Rp. <?= number_format(isset($total_dari_transaksi) ? $total_dari_transaksi : (float)$invoice['invoice_total'], 1, ',', '.'); ?></td>
                       </tr>
                       <tr>
                         <th>
@@ -211,7 +222,7 @@
                             }
                           ?>
                         </th>
-                        <td>Rp. <?= number_format($invoice['invoice_bayar'], 0, ',', '.'); ?></td>
+                        <td>Rp. <?= number_format((float)$invoice['invoice_bayar'], 1, ',', '.'); ?></td>
                       </tr>
                       <tr>
                         <th>
@@ -224,7 +235,7 @@
                             }
                           ?>
                         </th>
-                        <td>Rp. <?= number_format($invoice['invoice_kembali'], 0, ',', '.'); ?></td>
+                        <td>Rp. <?= number_format((float)$invoice['invoice_kembali'], 1, ',', '.'); ?></td>
                       </tr>
                     </table>
                   </div>

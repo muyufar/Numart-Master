@@ -20,6 +20,51 @@ function rupiah($angka)
   return 'Rp ' . number_format($angka, 0, ',', '.');
 }
 
+/**
+ * Hitung total persediaan barang awal (accrual) dari tabel pembelian.
+ *
+ * Logika:
+ * - Ambil data pembelian per cabang dan rentang tanggal.
+ * - Per barang_id: nilai tiap transaksi = barang_qty * barang_harga_beli.
+ * - Jika satu barang_id punya banyak transaksi: total_nilai = SUM(nilai), jumlah_transaksi = COUNT(*),
+ *   lalu rata_rata = total_nilai / jumlah_transaksi (satu angka per barang).
+ * - Total persediaan awal = jumlah semua rata_rata per barang_id.
+ *
+ * @param mysqli $conn Koneksi database
+ * @param string|int $cabang Kode cabang (pembelian_cabang)
+ * @param string $tanggal_awal Format Y-m-d
+ * @param string $tanggal_akhir Format Y-m-d
+ * @return float Total persediaan barang awal
+ */
+function hitungPersediaanAwalDariPembelian($conn, $cabang, $tanggal_awal, $tanggal_akhir)
+{
+  $cabang = mysqli_real_escape_string($conn, $cabang);
+  $tanggal_awal = mysqli_real_escape_string($conn, $tanggal_awal);
+  $tanggal_akhir = mysqli_real_escape_string($conn, $tanggal_akhir);
+
+  $sql = "
+    SELECT COALESCE(SUM(rata_rata), 0) AS total_persediaan_awal
+    FROM (
+      SELECT
+        barang_id,
+        SUM(barang_qty * barang_harga_beli) AS total_nilai_transaksi,
+        COUNT(*) AS jumlah_transaksi,
+        SUM(barang_qty * barang_harga_beli) / COUNT(*) AS rata_rata
+      FROM pembelian
+      WHERE pembelian_cabang = '$cabang'
+        AND pembelian_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+      GROUP BY barang_id
+    ) AS per_barang
+  ";
+
+  $q = mysqli_query($conn, $sql);
+  if (!$q) {
+    return 0;
+  }
+  $row = mysqli_fetch_assoc($q);
+  return (float) ($row['total_persediaan_awal'] ?? 0);
+}
+
 // Ambil data toko
 $toko = query("SELECT * FROM toko WHERE toko_cabang = '$cabang' ")[0];
 
@@ -36,14 +81,8 @@ $toko = query("SELECT * FROM toko WHERE toko_cabang = '$cabang' ")[0];
 ------------------------------------------- */
 
 if ($cabang == 0) {
-  // CABANG 0: Persediaan dari pembelian
-  $q_persediaan_barang = mysqli_query($conn, "
-    SELECT COALESCE(SUM(invoice_total), 0) AS total
-    FROM invoice_pembelian
-    WHERE invoice_pembelian_cabang = '$cabang'
-    AND invoice_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
-  ");
-  $persediaan_awal = mysqli_fetch_assoc($q_persediaan_barang)['total'] ?? 0;
+  // CABANG 0: Persediaan dari pembelian (rata-rata transaksi per barang_id, lalu dijumlah)
+  $persediaan_awal = hitungPersediaanAwalDariPembelian($conn, $cabang, $tanggal_awal, $tanggal_akhir);
   $persediaan_label = "Total Pembelian Barang";
 } else {
   // CABANG LAIN: Persediaan dari transfer stock yang diterima dari cabang 0
@@ -648,65 +687,90 @@ if ($persediaan_akhir > 0) {
 ?>
 
 <div class="content-wrapper">
+  <!-- Content Header (Page header) -->
   <section class="content-header">
     <div class="container-fluid">
-      <h1>Laporan Laba Bersih Accural Basis</h1>
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1>Laporan Laba Bersih (Accrual Basis)</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="bo">Home</a></li>
+            <li class="breadcrumb-item active">Laporan Laba Bersih Accrual</li>
+          </ol>
+        </div>
+      </div>
     </div>
   </section>
 
   <section class="content">
     <div class="container-fluid">
 
-      <!-- FILTER -->
+      <!-- Filter -->
       <div class="card card-default">
         <div class="card-header">
           <h3 class="card-title">Filter Data</h3>
+          <div class="card-tools">
+            <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+            <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
+          </div>
         </div>
         <form method="POST">
           <div class="card-body">
             <div class="row">
               <div class="col-md-3">
-                <label>Tanggal Awal</label>
-                <input type="date" name="tanggal_awal" class="form-control" value="<?= $tanggal_awal ?>">
+                <div class="form-group">
+                  <label for="tanggal_awal">Tanggal Awal</label>
+                  <input type="date" name="tanggal_awal" id="tanggal_awal" class="form-control" value="<?= $tanggal_awal ?>">
+                </div>
               </div>
               <div class="col-md-3">
-                <label>Tanggal Akhir</label>
-                <input type="date" name="tanggal_akhir" class="form-control" value="<?= $tanggal_akhir ?>">
+                <div class="form-group">
+                  <label for="tanggal_akhir">Tanggal Akhir</label>
+                  <input type="date" name="tanggal_akhir" id="tanggal_akhir" class="form-control" value="<?= $tanggal_akhir ?>">
+                </div>
               </div>
               <div class="col-md-3">
-                <label>Cabang</label>
-                <select name="cabang" class="form-control" <?= $levelLogin == 'super admin' ? '' : 'disabled' ?>>
-                  <?php foreach ($listCabang as $cab) : ?>
-                    <option value="<?= $cab['toko_cabang'] ?>" <?= $cab['toko_cabang'] == $cabang ? 'selected' : '' ?>>
-                      <?= $cab['toko_nama'] ?>
-                    </option>
-                  <?php endforeach; ?>
-                </select>
+                <div class="form-group">
+                  <label for="cabang">Cabang</label>
+                  <select name="cabang" id="cabang" class="form-control" <?= $levelLogin == 'super admin' ? '' : 'disabled' ?>>
+                    <?php foreach ($listCabang as $cab) : ?>
+                      <option value="<?= $cab['toko_cabang'] ?>" <?= $cab['toko_cabang'] == $cabang ? 'selected' : '' ?>>
+                        <?= $cab['toko_nama'] ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
               </div>
               <div class="col-md-3">
-                <label>&nbsp;</label><br>
-                <button class="btn btn-primary"><i class="fa fa-filter"></i> Tampilkan</button>
+                <div class="form-group">
+                  <label>&nbsp;</label>
+                  <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fa fa-filter"></i> Tampilkan
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </form>
       </div>
 
-      <!-- LAPORAN -->
+      <!-- Laporan -->
       <div class="card card-primary">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h3 class="card-title text-bold text-white">Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></h3>
+          <h3 class="card-title mb-0 text-white">Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></h3>
           <div class="card-tools">
-            <button type="button" class="btn btn-success btn-sm" onclick="exportExcel()">
+            <button type="button" class="btn btn-success btn-sm no-print" onclick="exportExcel()">
               <i class="fas fa-file-excel"></i> Export Excel
             </button>
-            <button type="button" class="btn btn-danger btn-sm ml-1" onclick="exportPDF()">
+            <button type="button" class="btn btn-danger btn-sm ml-1 no-print" onclick="exportPDF()">
               <i class="fas fa-file-pdf"></i> Export PDF
             </button>
-            <button type="button" class="btn btn-info btn-sm ml-1" onclick="window.print()">
+            <button type="button" class="btn btn-info btn-sm ml-1 no-print" onclick="window.print()">
               <i class="fas fa-print"></i> Print
             </button>
-        </div>
+          </div>
         </div>
         <div class="card-body" id="laporan-content">
 
@@ -1057,13 +1121,13 @@ if ($persediaan_akhir > 0) {
         <div class="card-header d-flex justify-content-between align-items-center">
           <div>
             <h3 class="card-title mb-0">Laporan Neraca</h3>
-          <small>Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></small>
-        </div>
+            <small>Periode <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></small>
+          </div>
           <div class="card-tools">
-            <button type="button" class="btn btn-light btn-sm" onclick="exportNeracaExcel()">
+            <button type="button" class="btn btn-light btn-sm no-print" onclick="exportNeracaExcel()">
               <i class="fas fa-file-excel text-success"></i> Excel
             </button>
-            <button type="button" class="btn btn-light btn-sm ml-1" onclick="exportNeracaPDF()">
+            <button type="button" class="btn btn-light btn-sm ml-1 no-print" onclick="exportNeracaPDF()">
               <i class="fas fa-file-pdf text-danger"></i> PDF
             </button>
           </div>

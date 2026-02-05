@@ -2419,7 +2419,7 @@ function tambahKeranjangPembelianBarcode($data)
 	$keranjang_cabang   = $data['keranjang_cabang'];
 
 	// Ambil Data Barang berdasarkan Kode Barang 
-	$barang 	= mysqli_query($conn, "select barang_id, barang_nama from barang where barang_kode = '" . $barang_kode . "' && barang_cabang = '" . $keranjang_cabang . "' ");
+	$barang 	= mysqli_query($conn, "select barang_id, barang_nama from barang where barang_status = '1' && barang_kode = '" . $barang_kode . "' && barang_cabang = '" . $keranjang_cabang . "' ");
 	$br 		= mysqli_fetch_array($barang);
 
 	$barang_id          = $br['barang_id'];
@@ -2477,14 +2477,27 @@ function updateQTYpembelian($data)
 	global $conn;
 	$id = $data["keranjang_id"];
 
-	// ambil data dari tiap elemen dalam form
-	$keranjang_qty = htmlspecialchars($data['keranjang_qty']);
+	// ambil data dari tiap elemen dalam form (decimal 11,1)
+	$keranjang_qty = round((float)$data['keranjang_qty'], 1);
 	$stock_brg = $data['stock_brg'];
-
 
 	// query update data
 	$query = "UPDATE keranjang_pembelian SET 
 				keranjang_qty   = '$keranjang_qty'
+				WHERE keranjang_id = $id
+			";
+	mysqli_query($conn, $query);
+	return mysqli_affected_rows($conn);
+}
+
+function updateHargaBeliPembelian($data)
+{
+	global $conn;
+	$id = $data["keranjang_id"];
+	$keranjang_harga = round((float)$data['keranjang_harga'], 1);
+
+	$query = "UPDATE keranjang_pembelian SET 
+				keranjang_harga = '$keranjang_harga'
 				WHERE keranjang_id = $id
 			";
 	mysqli_query($conn, $query);
@@ -2603,7 +2616,14 @@ function updateStockPembelian($data)
 			$pembelian_inv = mysqli_real_escape_string($conn, $pembelian_invoice[$x]);
 			$pembelian_inv_parent = mysqli_real_escape_string($conn, $pembelian_invoice_parent[$x]);
 			$pembelian_dt = mysqli_real_escape_string($conn, $pembelian_date[$x]);
-			$harga_beli = floatval($barang_harga_beli[$x]);
+			$harga_beli = isset($barang_harga_beli[$x]) ? round((float)$barang_harga_beli[$x], 1) : 0;
+			// Jika harga beli dari form 0, ambil dari tabel barang
+			if ($harga_beli <= 0 && $barang_id > 0) {
+				$res_brg = mysqli_query($conn, "SELECT barang_harga_beli FROM barang WHERE barang_id = $barang_id LIMIT 1");
+				if ($res_brg && $row_brg = mysqli_fetch_assoc($res_brg)) {
+					$harga_beli = round((float)$row_brg['barang_harga_beli'], 1);
+				}
+			}
 			$cabang = intval($pembelian_cabang[$x]);
 			
 			$query = "INSERT INTO pembelian VALUES ('', '$barang_id', '$barang_id', '$qty', '$id_kasir', '$pembelian_inv', '$pembelian_inv_parent', '$pembelian_dt', '$qty', '$qty', '$harga_beli', '$cabang')";
@@ -2616,18 +2636,11 @@ function updateStockPembelian($data)
 				return 0;
 			}
 
-			// Mencari Rata-rata Pembelian
-// 			$hargaBeli = mysqli_query($conn, "SELECT AVG(barang_harga_beli) AS average FROM pembelian WHERE barang_id = $id[$x]");
-// 			$hargaBeli = mysqli_fetch_assoc($hargaBeli);
-// 			$hargaBeli = ceil($hargaBeli['average']);
-
-			// Edit Data
-// 			$query2 = "UPDATE barang SET 
-// 						barang_harga_beli     = '$hargaBeli'
-// 						WHERE barang_id       = $id[$x]
-// 				";
-
-// 			mysqli_query($conn, $query2);
+			// Update harga barang master: barang_harga_beli mengikuti harga terbaru dari transaksi ini
+			// Pencocokan berdasarkan barang_id (setiap baris keranjang punya barang_id dari input/scan)
+			$harga_beli_rounded = round($harga_beli, 1);
+			$query2 = "UPDATE barang SET barang_harga_beli = '$harga_beli_rounded' WHERE barang_id = $barang_id";
+			mysqli_query($conn, $query2);
 		}
 
 

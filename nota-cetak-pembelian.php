@@ -142,24 +142,25 @@
 					<?php 
                       $invoice1 = $invoice['pembelian_invoice_parent'];
 	                  $i = 1; 
-	                  $queryProduct = $conn->query("SELECT pembelian.pembelian_id, barang.barang_id, barang.barang_nama, pembelian.barang_harga_beli, pembelian.barang_qty, pembelian.pembelian_invoice, pembelian.pembelian_cabang
+	                  $queryProduct = $conn->query("SELECT pembelian.pembelian_id, barang.barang_id, barang.barang_nama, pembelian.barang_harga_beli AS harga_beli_transaksi, barang.barang_harga_beli AS harga_beli_barang, pembelian.barang_qty, pembelian.pembelian_invoice, pembelian.pembelian_cabang
 	                             FROM pembelian 
 	                             JOIN barang ON pembelian.barang_id = barang.barang_id
 	                             WHERE pembelian_invoice_parent = $invoice1 && pembelian_cabang = '".$sessionCabang."'
 	                             ORDER BY pembelian_id DESC
 	                             ");
 	                  while ($rowProduct = mysqli_fetch_array($queryProduct)) {
+	                    $harga_beli = (float)$rowProduct['harga_beli_transaksi'];
+	                    if ($harga_beli <= 0) {
+	                      $harga_beli = (float)$rowProduct['harga_beli_barang'];
+	                    }
+	                    $qty = (float)$rowProduct['barang_qty'];
+	                    $subTotal = $harga_beli * $qty;
 	                ?>
 					<tr>
 						<td><?= $rowProduct['barang_nama']; ?></td>
-                      	<td><?= $rowProduct['barang_qty']; ?></td>
-                      	<td><?= number_format($rowProduct['barang_harga_beli'], 0, ',', '.'); ?></td>
-                      	<td>
-                      	<?php  
-                      		$subTotal = $rowProduct['barang_qty'] * $rowProduct['barang_harga_beli'];
-                      		echo(number_format($subTotal, 0, ',', '.'));
-                      	?>
-                      	</td>
+                      	<td><?= number_format($qty, 1, ',', '.'); ?></td>
+                      	<td><?= number_format($harga_beli, 1, ',', '.'); ?></td>
+                      	<td><?= number_format($subTotal, 1, ',', '.'); ?></td>
 					</tr>
 					<?php } ?>
 				</table>
@@ -173,7 +174,7 @@
 					</div>
 					<div class="col-6">
 						Rp. <span class="right-nota">
-								<?= number_format($invoice['invoice_total'], 0, ',', '.'); ?>
+								<?= number_format((float)$invoice['invoice_total'], 1, ',', '.'); ?>
 							</span>
 					</div>
 
@@ -185,7 +186,7 @@
 					</div>
 					<div class="col-6">
 						Rp. <span class="right-nota">
-								<?= number_format($invoice['invoice_hutang_dp'], 0, ',', '.'); ?>
+								<?= number_format((float)$invoice['invoice_hutang_dp'], 1, ',', '.'); ?>
 							</span>
 					</div>
 					<?php } ?>
@@ -205,7 +206,7 @@
 					</div>
 					<div class="col-6">
 						Rp. <span class="right-nota">
-								<?= number_format($invoice['invoice_bayar'], 0, ',', '.'); ?>
+								<?= number_format((float)$invoice['invoice_bayar'], 1, ',', '.'); ?>
 							</span>
 					</div>
 
@@ -224,7 +225,7 @@
 					</div>
 					<div class="col-6">
 						Rp. <span class="right-nota">
-								<?= number_format($invoice['invoice_kembali'], 0, ',', '.'); ?>
+								<?= number_format((float)$invoice['invoice_kembali'], 1, ',', '.'); ?>
 							</span>
 					</div>
 				</div>

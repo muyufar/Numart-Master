@@ -71,6 +71,21 @@ if( isset($_POST["update"]) ){
 }
 ?>
 
+<?php  
+// Edit Harga Beli
+if( isset($_POST["update_harga"]) ){
+  if ( updateHargaBeliPembelian($_POST) > 0 ) {
+    $r = isset($_GET['r']) ? $_GET['r'] : (isset($_POST['r']) ? $_POST['r'] : '');
+    $url = 'transaksi-pembelian';
+    if ( $r !== '' ) $url .= '?r=' . $r;
+    echo "<script> document.location.href = '" . $url . "'; </script>";
+    exit;
+  } else {
+    echo "<script> alert('Gagal mengupdate harga beli'); </script>";
+  }
+}
+?>
+
 <?php 
 error_reporting(0);
 // Insert Ke keranjang

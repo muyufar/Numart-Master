@@ -26,6 +26,7 @@ $table = <<<EOT
       b.satuan_nama
     FROM barang a
     LEFT JOIN satuan b ON a.barang_satuan_id = b.satuan_id
+    WHERE a.barang_status = '1'
  ) temp
 EOT;
  
