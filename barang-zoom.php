@@ -15,10 +15,32 @@
 ?>
 <?php  
 // ambil data di URL
-$id = abs((int)base64_decode($_GET['id']));
+$id = abs((int)base64_decode($_GET['id'] ?? 0));
 
-// query data mahasiswa berdasarkan id
-$barang = query("SELECT * FROM barang WHERE barang_id = $id ")[0];
+$barangRows = query("SELECT * FROM barang WHERE barang_id = $id ");
+if (empty($barangRows)) {
+    echo '<script>alert("Barang tidak ditemukan."); window.close();</script>';
+    exit;
+}
+$barang = $barangRows[0];
+
+// Harga beli rata-rata: hanya dari tabel yang kolomnya dipakai konsisten di codebase
+// pembelian: barang_id, barang_harga_beli (invoice-pembelian, pembelian-edit, nota-cetak-pembelian)
+// penjualan: barang_id, keranjang_harga_beli (penjualan-zoom, penjualan-edit, produk-analisa)
+$avgBeli = null;
+$id_int = (int) $id;
+if ($id_int > 0) {
+    $qPembelian = mysqli_query($conn, "SELECT AVG(barang_harga_beli) AS avg_beli FROM pembelian WHERE barang_id = $id_int");
+    if ($qPembelian && ($row = mysqli_fetch_assoc($qPembelian)) && $row['avg_beli'] !== null && (float)$row['avg_beli'] > 0) {
+        $avgBeli = (float) $row['avg_beli'];
+    }
+    if ($avgBeli === null) {
+        $qPenjualan = mysqli_query($conn, "SELECT AVG(keranjang_harga_beli) AS avg_beli FROM penjualan WHERE barang_id = $id_int");
+        if ($qPenjualan && ($row = mysqli_fetch_assoc($qPenjualan)) && $row['avg_beli'] !== null && (float)$row['avg_beli'] > 0) {
+            $avgBeli = (float) $row['avg_beli'];
+        }
+    }
+}
 
 ?>
 
@@ -360,6 +382,12 @@ $barang = query("SELECT * FROM barang WHERE barang_id = $id ")[0];
                             <div class="form-group">
                               <label for="barang_harga_beli">Harga Beli</label> 
                               <input type="text" name="barang_harga_beli" class="form-control" id="barang_harga" value="<?= $barang['barang_harga_beli']; ?>" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-6">
+                            <div class="form-group">
+                              <label for="harga_beli_rata">Harga Beli Rata-rata</label> 
+                              <input type="text" class="form-control" id="harga_beli_rata" value="<?= $avgBeli !== null ? number_format($avgBeli, 0, ',', '.') : '–'; ?>" readonly placeholder="Dari riwayat pembelian">
                             </div>
                         </div>
                     </div>
