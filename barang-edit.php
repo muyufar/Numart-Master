@@ -95,6 +95,7 @@ if( isset($_POST["submit"]) ){
                     <div class="row">
                       <div class="col-md-6 col-lg-6">
                         <input type="hidden" name="barang_id" value="<?= $barang['barang_id']; ?>">
+                        <input type="hidden" name="barang_kategori_id" value="<?= $barang['kategori_id']; ?>">
                         <div class="form-group">
                           <label for="barang_kode">Barcode / Kode Barang</label>
                           <input type="text" name="barang_kode" class="form-control" id="barang_kode" value="<?= $barang['barang_kode']; ?>" <?= $isReadOnly; ?> required>
@@ -311,6 +312,45 @@ if( isset($_POST["submit"]) ){
                           </div>
                         </div>
 
+                        <div class="col-md-6 col-lg-6">
+                          <div class="form-group ">
+                              <label for="satuan_id">Satuan 4</label>
+                              <div class="">
+                                  <select name="satuan_id_4" <?= $isReadOnly; ?> class="form-control ">
+                                  <?php  
+                                    $satuan = isset($barang['satuan_id_4']) ? $barang['satuan_id_4'] : '';
+                                    if ($satuan) {
+                                        $satuanParent = mysqli_query( $conn, "select satuan_nama from satuan where satuan_id = ".$satuan." && satuan_status > 0 && satuan_cabang = 0 ");
+                                        $sn = mysqli_fetch_array($satuanParent); 
+                                        $nSn = $sn['satuan_nama'];
+                                    } else {
+                                        $nSn = '';
+                                    }
+                                  ?>
+
+                                    <option value="<?= $satuan; ?>"><?= $nSn ? $nSn : '-- Satuan --'; ?></option>
+
+                                    <?php $data1 = query("SELECT * FROM satuan WHERE satuan_status > 0 && satuan_cabang = 0 ORDER BY satuan_id DESC"); ?>
+                                    <?php foreach ( $data1 as $row ) : ?>
+                                      <?php if ( $row['satuan_status'] === '1' ) { ?>
+                                      <?php if ( $row['satuan_id'] !== $satuan ) { ?>
+                                        <option value="<?= $row['satuan_id']; ?>">
+                                          <?= $row['satuan_nama']; ?> 
+                                        </option>
+                                      <?php } ?>
+                                      <?php } ?>
+                                    <?php endforeach; ?>
+                                </select>
+                              </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-6">
+                          <div class="form-group">
+                            <label for="barang_nama">Isi</label>
+                            <input type="number" name="satuan_isi_4" <?= $isReadOnly; ?> class="form-control" id="barang_nama" value="<?= isset($barang['satuan_isi_4']) ? $barang['satuan_isi_4'] : ''; ?>" placeholder="Konversi dari satuan utama">
+                          </div>
+                        </div>
+
                     </div>
                   </div>
                   <!-- /.card-body -->
@@ -347,6 +387,7 @@ if( isset($_POST["submit"]) ){
                                 <th>Satuan 1</th>
                                 <th>Satuan 2</th>
                                 <th>Satuan 3</th>
+                                <th>Satuan 4</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -361,6 +402,9 @@ if( isset($_POST["submit"]) ){
                                 <td>
                                   <input type="text" name="barang_harga_s3" class="form-control" id="barang_harga_s3" placeholder="Input Harga Barang" value="<?= $barang['barang_harga_s3']; ?>" <?= $isReadOnly; ?>>
                                 </td>
+                                <td>
+                                  <input type="text" name="barang_harga_s4" class="form-control" id="barang_harga_s4" placeholder="Input Harga Barang" value="<?= isset($barang['barang_harga_s4']) ? $barang['barang_harga_s4'] : '0'; ?>" <?= $isReadOnly; ?>>
+                                </td>
                             </tr>
                             <!--onkeypress="return hanyaAngka(event)"-->
                             <tr>
@@ -374,6 +418,9 @@ if( isset($_POST["submit"]) ){
                                 <td>
                                   <input type="text" name="barang_harga_grosir_1_s3" class="form-control" id="barang_harga_grosir_1_s3" placeholder="Input Harga Barang" value="<?= $barang['barang_harga_grosir_1_s3']; ?>" <?= $isReadOnly; ?>>
                                 </td>
+                                <td>
+                                  <input type="text" name="barang_harga_grosir_1_s4" class="form-control" id="barang_harga_grosir_1_s4" placeholder="Input Harga Barang" value="<?= isset($barang['barang_harga_grosir_1_s4']) ? $barang['barang_harga_grosir_1_s4'] : '0'; ?>" <?= $isReadOnly; ?>>
+                                </td>
                             </tr>
                             <tr>
                                 <th>Harga Grosir</th>
@@ -385,6 +432,9 @@ if( isset($_POST["submit"]) ){
                                 </td>
                                 <td>
                                   <input type="text" name="barang_harga_grosir_2_s3" class="form-control" id="barang_harga_grosir_2_s3" placeholder="Input Harga Barang" value="<?= $barang['barang_harga_grosir_2_s3']; ?>" <?= $isReadOnly; ?>>
+                                </td>
+                                <td>
+                                  <input type="text" name="barang_harga_grosir_2_s4" class="form-control" id="barang_harga_grosir_2_s4" placeholder="Input Harga Barang" value="<?= isset($barang['barang_harga_grosir_2_s4']) ? $barang['barang_harga_grosir_2_s4'] : '0'; ?>" <?= $isReadOnly; ?>>
                                 </td>
                             </tr>
                           </tbody>

@@ -312,6 +312,45 @@ if ($id_int > 0) {
                           </div>
                         </div>
 
+                        <div class="col-md-6 col-lg-6">
+                          <div class="form-group ">
+                              <label for="satuan_id">Satuan 4</label>
+                              <div class="">
+                                  <select name="satuan_id_4" readonly="" class="form-control ">
+                                  <?php  
+                                    $satuan = isset($barang['satuan_id_4']) ? $barang['satuan_id_4'] : '';
+                                    if ($satuan) {
+                                        $satuanParent = mysqli_query( $conn, "select satuan_nama from satuan where satuan_id = ".$satuan." && satuan_status > 0 && satuan_cabang = 0 ");
+                                        $sn = mysqli_fetch_array($satuanParent); 
+                                        $nSn = $sn ? $sn['satuan_nama'] : '';
+                                    } else {
+                                        $nSn = '';
+                                    }
+                                  ?>
+
+                                    <option value="<?= $satuan; ?>"><?= $nSn ? $nSn : '-- Satuan --'; ?></option>
+
+                                    <?php $data1 = query("SELECT * FROM satuan WHERE satuan_status > 0 && satuan_cabang = 0 ORDER BY satuan_id DESC"); ?>
+                                    <?php foreach ( $data1 as $row ) : ?>
+                                      <?php if ( $row['satuan_status'] === '1' ) { ?>
+                                      <?php if ( $row['satuan_id'] !== $satuan ) { ?>
+                                        <option value="<?= $row['satuan_id']; ?>">
+                                          <?= $row['satuan_nama']; ?> 
+                                        </option>
+                                      <?php } ?>
+                                      <?php } ?>
+                                    <?php endforeach; ?>
+                                </select>
+                              </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-6">
+                          <div class="form-group">
+                            <label for="barang_nama">Isi</label>
+                            <input type="number" name="satuan_isi_4" class="form-control" id="barang_nama" value="<?= isset($barang['satuan_isi_4']) ? $barang['satuan_isi_4'] : ''; ?>" readonly placeholder="Konversi dari satuan utama">
+                          </div>
+                        </div>
+
                     </div>
                   </div>
                   <!-- /.card-body -->
@@ -332,6 +371,7 @@ if ($id_int > 0) {
                                 <th>Satuan 1</th>
                                 <th>Satuan 2</th>
                                 <th>Satuan 3</th>
+                                <th>Satuan 4</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -346,6 +386,9 @@ if ($id_int > 0) {
                                 <td>
                                   <input type="number" name="barang_harga_s3" class="form-control" id="barang_harga_s3" placeholder="Input Harga Barang"  onkeypress="return hanyaAngka(event)" value="<?= $barang['barang_harga_s3']; ?>" readonly>
                                 </td>
+                                <td>
+                                  <input type="number" name="barang_harga_s4" class="form-control" id="barang_harga_s4" placeholder="Input Harga Barang"  onkeypress="return hanyaAngka(event)" value="<?= isset($barang['barang_harga_s4']) ? $barang['barang_harga_s4'] : '0'; ?>" readonly>
+                                </td>
                             </tr>
                             <tr>
                                 <th>Harga Retail</th>
@@ -358,6 +401,9 @@ if ($id_int > 0) {
                                 <td>
                                   <input type="number" name="barang_harga_grosir_1_s3" class="form-control" id="barang_harga_grosir_1_s3" placeholder="Input Harga Barang" value="<?= $barang['barang_harga_grosir_1_s3']; ?>" onkeypress="return hanyaAngka(event)" readonly>
                                 </td>
+                                <td>
+                                  <input type="number" name="barang_harga_grosir_1_s4" class="form-control" id="barang_harga_grosir_1_s4" placeholder="Input Harga Barang" value="<?= isset($barang['barang_harga_grosir_1_s4']) ? $barang['barang_harga_grosir_1_s4'] : '0'; ?>" onkeypress="return hanyaAngka(event)" readonly>
+                                </td>
                             </tr>
                             <tr>
                                 <th>Harga Grosir</th>
@@ -369,6 +415,9 @@ if ($id_int > 0) {
                                 </td>
                                 <td>
                                   <input type="number" name="barang_harga_grosir_2_s3" class="form-control" id="barang_harga_grosir_2_s3" placeholder="Input Harga Barang" value="<?= $barang['barang_harga_grosir_2_s3']; ?>" onkeypress="return hanyaAngka(event)" readonly>
+                                </td>
+                                <td>
+                                  <input type="number" name="barang_harga_grosir_2_s4" class="form-control" id="barang_harga_grosir_2_s4" placeholder="Input Harga Barang" value="<?= isset($barang['barang_harga_grosir_2_s4']) ? $barang['barang_harga_grosir_2_s4'] : '0'; ?>" onkeypress="return hanyaAngka(event)" readonly>
                                 </td>
                             </tr>
                           </tbody>

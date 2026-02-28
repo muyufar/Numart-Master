@@ -256,6 +256,39 @@ if( isset($_POST["submit"]) ){
                           </div>
                         </div>
 
+                        <div class="col-md-6 col-lg-6">
+                          <div class="form-group ">
+                              <label for="satuan_id">Satuan 4</label>
+                              <div class="">
+                                <?php $data2 = query("SELECT * FROM satuan WHERE satuan_cabang = $sessionCabang ORDER BY satuan_id DESC"); ?>
+                                  <select name="satuan_id_4" class="form-control tipe-non-sn-or-sn satuan_id_4">
+                                    <option value="">-- Satuan --</option>
+                                    <?php foreach ( $data2 as $row ) : ?>
+                                      <?php if ( $row['satuan_status'] === '1' ) { ?>
+                                        <option value="<?= $row['satuan_id']; ?>">
+                                          <?= $row['satuan_nama']; ?>
+                                        </option>
+                                      <?php } ?>
+                                    <?php endforeach; ?>
+                                  </select>
+                              </div>
+                              <div class="checkbox">
+                                <label>
+                                  <input type="checkbox" value="" class="checkbox-satuan-4" name="checkbox-satuan-4">
+                                  <small style="color: red">
+                                    Aktifkan Checklist Agar <b>Harga Satuan 4 Aktif</b>
+                                  </small>
+                                </label>
+                              </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-6">
+                          <div class="form-group">
+                            <label for="barang_nama">Isi</label>
+                            <input type="number" name="satuan_isi_4" class="form-control tipe-non-sn-or-sn satuan_id_4" id="barang_nama" placeholder="Konversi dari satuan utama">
+                          </div>
+                        </div>
+
                     </div>
                   </div>
                   <!-- /.card-body -->
@@ -300,6 +333,7 @@ if( isset($_POST["submit"]) ){
                                 <th>Satuan 1</th>
                                 <th>Satuan 2</th>
                                 <th>Satuan 3</th>
+                                <th>Satuan 4</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -316,6 +350,10 @@ if( isset($_POST["submit"]) ){
                                   <input type="text" name="barang_harga_s3" class="form-control harga-satuan-3" id="barang_harga_s3" placeholder="Input Harga Barang" value="0" readonly>
                                    <!--<input type="text" name="barang_harga_s3" class="form-control harga-satuan-3" id="barang_harga_s3" placeholder="Input Harga Barang" value="0" onkeypress="return hanyaAngka(event)" readonly>-->
                                 </td>
+                                <td>
+                                  <input type="text" name="barang_harga_s4" class="form-control harga-satuan-4" id="barang_harga_s4" placeholder="Input Harga Barang" value="0" readonly>
+                                   <!--<input type="text" name="barang_harga_s3" class="form-control harga-satuan-3" id="barang_harga_s3" placeholder="Input Harga Barang" value="0" onkeypress="return hanyaAngka(event)" readonly>-->
+                                </td>
                             </tr>
                             <tr>
                                 <th>Harga Retail</th>
@@ -328,6 +366,9 @@ if( isset($_POST["submit"]) ){
                                 <td>
                                   <input type="text" name="barang_harga_grosir_1_s3" class="form-control harga-satuan-3" id="barang_harga_grosir_1_s3" placeholder="Input Harga Barang" value="0" readonly>
                                 </td>
+                                <td>
+                                  <input type="text" name="barang_harga_grosir_1_s4" class="form-control harga-satuan-4" id="barang_harga_grosir_1_s4" placeholder="Input Harga Barang" value="0" readonly>
+                                </td>
                             </tr>
                             <tr>
                                 <th>Harga Grosir</th>
@@ -339,6 +380,9 @@ if( isset($_POST["submit"]) ){
                                 </td>
                                 <td>
                                   <input type="text" name="barang_harga_grosir_2_s3" class="form-control harga-satuan-3" id="barang_harga_grosir_2_s3" placeholder="Input Harga Barang" value="0" readonly>
+                                </td>
+                                <td>
+                                  <input type="text" name="barang_harga_grosir_2_s4" class="form-control harga-satuan-4" id="barang_harga_grosir_2_s4" placeholder="Input Harga Barang" value="0" readonly>
                                 </td>
                             </tr>
                         
@@ -424,6 +468,17 @@ if( isset($_POST["submit"]) ){
         } else {
             $(".harga-satuan-3").attr("readonly", true);
             $(".satuan_id_3").removeAttr("required");
+        }
+    });
+
+    $('.checkbox-satuan-4').change(function() {
+        // this will contain a reference to the checkbox   
+        if (this.checked) {
+            $(".harga-satuan-4").removeAttr("readonly");
+            $(".satuan_id_4").attr("required", true);
+        } else {
+            $(".harga-satuan-4").attr("readonly", true);
+            $(".satuan_id_4").removeAttr("required");
         }
     });
 </script>

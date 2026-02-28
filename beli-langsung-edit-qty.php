@@ -12,9 +12,11 @@
   $stockParent = mysqli_query( $conn, "select satuan_id, 
     satuan_id_2, 
     satuan_id_3, 
+    satuan_id_4, 
     satuan_isi_1, 
     satuan_isi_2, 
     satuan_isi_3, 
+    satuan_isi_4, 
     barang_stock, 
     barang_option_sn from barang where barang_id = '".$bik."'");
   $brg = mysqli_fetch_array($stockParent); 
@@ -24,10 +26,12 @@
   $satuan_id    = $brg['satuan_id'];
   $satuan_id_2  = $brg['satuan_id_2'];
   $satuan_id_3  = $brg['satuan_id_3'];
+  $satuan_id_4  = isset($brg['satuan_id_4']) ? $brg['satuan_id_4'] : '';
 
   $satuan_isi_1 = $brg['satuan_isi_1'];
   $satuan_isi_2 = $brg['satuan_isi_2'];
   $satuan_isi_3 = $brg['satuan_isi_3'];
+  $satuan_isi_4 = isset($brg['satuan_isi_4']) ? $brg['satuan_isi_4'] : '';
 
   // Mencari nama satuan Pertama
   $satuanPertama = mysqli_query($conn, "select satuan_nama from satuan where satuan_id = ".$satuan_id." ");
@@ -37,12 +41,20 @@
   // Mencari nama satuan Kedua
   $satuanKedua = mysqli_query($conn, "select satuan_nama from satuan where satuan_id = ".$satuan_id_2." ");
   $satuanNamaKedua = mysqli_fetch_array($satuanKedua);
-  $satuanNamaKedua = $satuanNamaKedua['satuan_nama'];
+  $satuanNamaKedua = $satuanNamaKedua ? $satuanNamaKedua['satuan_nama'] : '';
 
   // Mencari nama satuan Ketiga
   $satuanKetiga = mysqli_query($conn, "select satuan_nama from satuan where satuan_id = ".$satuan_id_3." ");
   $satuanNamaKetiga = mysqli_fetch_array($satuanKetiga);
-  $satuanNamaKetiga = $satuanNamaKetiga['satuan_nama'];
+  $satuanNamaKetiga = $satuanNamaKetiga ? $satuanNamaKetiga['satuan_nama'] : '';
+
+  // Mencari nama satuan Keempat
+  $satuanNamaKeempat = '';
+  if ($satuan_id_4) {
+    $satuanKeempat = mysqli_query($conn, "select satuan_nama from satuan where satuan_id = ".$satuan_id_4." ");
+    $satuanNamaKeempat = mysqli_fetch_array($satuanKeempat);
+    $satuanNamaKeempat = $satuanNamaKeempat ? $satuanNamaKeempat['satuan_nama'] : '';
+  }
   
   
   // ================================================================================= //
@@ -55,7 +67,10 @@
                                            barang_harga_grosir_2_s2,
                                            barang_harga_s3,
                                            barang_harga_grosir_1_s3,
-                                           barang_harga_grosir_2_s3 from barang where barang_id = ".$bik." ");
+                                           barang_harga_grosir_2_s3,
+                                           barang_harga_s4,
+                                           barang_harga_grosir_1_s4,
+                                           barang_harga_grosir_2_s4 from barang where barang_id = ".$bik." ");
   $dataHarga = mysqli_fetch_array($dataHarga);
   $barang_harga = $dataHarga['barang_harga'];
   // kondisi berdasarkan customer umum, grosir 1 & grosir 2
@@ -63,14 +78,17 @@
       $barang_harga_satuan_1          = $dataHarga['barang_harga_grosir_1'];
       $barang_harga_satuan_2          = $dataHarga['barang_harga_grosir_1_s2'];
       $barang_harga_satuan_3          = $dataHarga['barang_harga_grosir_1_s3'];
+      $barang_harga_satuan_4          = isset($dataHarga['barang_harga_grosir_1_s4']) ? $dataHarga['barang_harga_grosir_1_s4'] : '0';
   } elseif ( $customer == 2 ) {
       $barang_harga_satuan_1          = $dataHarga['barang_harga_grosir_2'];
       $barang_harga_satuan_2          = $dataHarga['barang_harga_grosir_2_s2'];
       $barang_harga_satuan_3          = $dataHarga['barang_harga_grosir_2_s3'];
+      $barang_harga_satuan_4          = isset($dataHarga['barang_harga_grosir_2_s4']) ? $dataHarga['barang_harga_grosir_2_s4'] : '0';
   } else {
       $barang_harga_satuan_1          = $dataHarga['barang_harga'];
       $barang_harga_satuan_2          = $dataHarga['barang_harga_s2'];
       $barang_harga_satuan_3          = $dataHarga['barang_harga_s3'];
+      $barang_harga_satuan_4          = isset($dataHarga['barang_harga_s4']) ? $dataHarga['barang_harga_s4'] : '0';
   }
 ?>
 
@@ -99,6 +117,10 @@
                   <option value="<?= $satuan_id_3; ?>-<?= $satuan_isi_3; ?>-<?= $barang_harga_satuan_3; ?>"><?= $satuanNamaKetiga; ?> - Harga Rp <?= number_format($barang_harga_satuan_3, 0, ',', '.'); ?> - Isi <?= $satuan_isi_3; ?> <?= $satuanNamaPertama; ?></option>
                   <?php } ?>
 
+                  <?php if ( $satuan_id_4 > 0 && $tb_brg >= $satuan_isi_4 && $satuanNamaKeempat ) { ?>
+                  <option value="<?= $satuan_id_4; ?>-<?= $satuan_isi_4; ?>-<?= $barang_harga_satuan_4; ?>"><?= $satuanNamaKeempat; ?> - Harga Rp <?= number_format($barang_harga_satuan_4, 0, ',', '.'); ?> - Isi <?= $satuan_isi_4; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
                 <?php elseif ( $keranjang_satuan == $satuan_id_2 ) : ?>
                   <?php if ( $satuan_id > 0 && $tb_brg >= $satuan_isi_2 ) { ?>
                   <option value="<?= $satuan_id_2; ?>-<?= $satuan_isi_2; ?>-<?= $barang_harga_satuan_2; ?>"><?= $satuanNamaKedua; ?> - Harga Rp <?= number_format($barang_harga_satuan_2, 0, ',', '.'); ?> - Isi <?= $satuan_isi_2; ?> <?= $satuanNamaPertama; ?></option>
@@ -112,6 +134,10 @@
                   <option value="<?= $satuan_id_3; ?>-<?= $satuan_isi_3; ?>-<?= $barang_harga_satuan_3; ?>"><?= $satuanNamaKetiga; ?> - Harga Rp <?= number_format($barang_harga_satuan_3, 0, ',', '.'); ?> - Isi <?= $satuan_isi_3; ?> <?= $satuanNamaPertama; ?></option>
                   <?php } ?>
 
+                  <?php if ( $satuan_id_4 > 0 && $tb_brg >= $satuan_isi_4 && $satuanNamaKeempat ) { ?>
+                  <option value="<?= $satuan_id_4; ?>-<?= $satuan_isi_4; ?>-<?= $barang_harga_satuan_4; ?>"><?= $satuanNamaKeempat; ?> - Harga Rp <?= number_format($barang_harga_satuan_4, 0, ',', '.'); ?> - Isi <?= $satuan_isi_4; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
                 <?php elseif ( $keranjang_satuan == $satuan_id_3 ) : ?>
                   <?php if ( $satuan_id > 0 && $tb_brg >= $satuan_isi_3 ) { ?>
                   <option value="<?= $satuan_id_3; ?>-<?= $satuan_isi_3; ?>-<?= $barang_harga_satuan_3; ?>"><?= $satuanNamaKetiga; ?> - Harga Rp <?= number_format($barang_harga_satuan_3, 0, ',', '.'); ?> - Isi <?= $satuan_isi_3; ?> <?= $satuanNamaPertama; ?></option>
@@ -123,6 +149,27 @@
 
                   <?php if ( $satuan_id_3 > 0 && $tb_brg >= $satuan_isi_2 ) { ?>
                   <option value="<?= $satuan_id_2; ?>-<?= $satuan_isi_2; ?>-<?= $barang_harga_satuan_2; ?>"><?= $satuanNamaKedua; ?> - Harga Rp <?= number_format($barang_harga_satuan_2, 0, ',', '.'); ?> - Isi <?= $satuan_isi_2; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
+                  <?php if ( $satuan_id_4 > 0 && $tb_brg >= $satuan_isi_4 && $satuanNamaKeempat ) { ?>
+                  <option value="<?= $satuan_id_4; ?>-<?= $satuan_isi_4; ?>-<?= $barang_harga_satuan_4; ?>"><?= $satuanNamaKeempat; ?> - Harga Rp <?= number_format($barang_harga_satuan_4, 0, ',', '.'); ?> - Isi <?= $satuan_isi_4; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
+                <?php elseif ( $keranjang_satuan == $satuan_id_4 ) : ?>
+                  <?php if ( $satuan_id > 0 && $tb_brg >= $satuan_isi_4 ) { ?>
+                  <option value="<?= $satuan_id_4; ?>-<?= $satuan_isi_4; ?>-<?= $barang_harga_satuan_4; ?>"><?= $satuanNamaKeempat; ?> - Harga Rp <?= number_format($barang_harga_satuan_4, 0, ',', '.'); ?> - Isi <?= $satuan_isi_4; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
+                  <?php if ( $satuan_id > 0 && $tb_brg >= $satuan_isi_1 ) { ?>
+                  <option value="<?= $satuan_id; ?>-<?= $satuan_isi_1; ?>-<?= $barang_harga_satuan_1; ?>"><?= $satuanNamaPertama; ?> - Harga Rp <?= number_format($barang_harga_satuan_1, 0, ',', '.'); ?> - Isi <?= $satuan_isi_1; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
+                  <?php if ( $satuan_id_2 > 0 && $tb_brg >= $satuan_isi_2 ) { ?>
+                  <option value="<?= $satuan_id_2; ?>-<?= $satuan_isi_2; ?>-<?= $barang_harga_satuan_2; ?>"><?= $satuanNamaKedua; ?> - Harga Rp <?= number_format($barang_harga_satuan_2, 0, ',', '.'); ?> - Isi <?= $satuan_isi_2; ?> <?= $satuanNamaPertama; ?></option>
+                  <?php } ?>
+
+                  <?php if ( $satuan_id_3 > 0 && $tb_brg >= $satuan_isi_3 ) { ?>
+                  <option value="<?= $satuan_id_3; ?>-<?= $satuan_isi_3; ?>-<?= $barang_harga_satuan_3; ?>"><?= $satuanNamaKetiga; ?> - Harga Rp <?= number_format($barang_harga_satuan_3, 0, ',', '.'); ?> - Isi <?= $satuan_isi_3; ?> <?= $satuanNamaPertama; ?></option>
                   <?php } ?>
                 <?php endif; ?>
             </select>

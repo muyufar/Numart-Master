@@ -379,15 +379,21 @@ function tambahBarang($data)
     $barang_harga_grosir_1_s3 = htmlspecialchars($data["barang_harga_grosir_1_s3"]);
     $barang_harga_grosir_2_s3 = htmlspecialchars($data["barang_harga_grosir_2_s3"]);
 
+    $barang_harga_s4          = isset($data["barang_harga_s4"]) ? htmlspecialchars($data["barang_harga_s4"]) : '0';
+    $barang_harga_grosir_1_s4 = isset($data["barang_harga_grosir_1_s4"]) ? htmlspecialchars($data["barang_harga_grosir_1_s4"]) : '0';
+    $barang_harga_grosir_2_s4 = isset($data["barang_harga_grosir_2_s4"]) ? htmlspecialchars($data["barang_harga_grosir_2_s4"]) : '0';
+
     $kategori_id              = $data["kategori_id"];
 
     $satuan_id                = $data["satuan_id"];
-    $satuan_id_2              = $data["satuan_id_2"];
-    $satuan_id_3              = $data["satuan_id_3"];
+    $satuan_id_2              = isset($data["satuan_id_2"]) ? $data["satuan_id_2"] : '';
+    $satuan_id_3              = isset($data["satuan_id_3"]) ? $data["satuan_id_3"] : '';
+    $satuan_id_4              = isset($data["satuan_id_4"]) ? $data["satuan_id_4"] : '';
 
     $satuan_isi_1             = 1;
-    $satuan_isi_2             = $data["satuan_isi_2"];
-    $satuan_isi_3             = $data["satuan_isi_3"];
+    $satuan_isi_2             = isset($data["satuan_isi_2"]) ? $data["satuan_isi_2"] : '';
+    $satuan_isi_3             = isset($data["satuan_isi_3"]) ? $data["satuan_isi_3"] : '';
+    $satuan_isi_4             = isset($data["satuan_isi_4"]) ? $data["satuan_isi_4"] : '';
 
     $barang_tanggal           = date("d F Y g:i:s a");
     $barang_stock             = htmlspecialchars($data["barang_stock"]);
@@ -420,7 +426,7 @@ function tambahBarang($data)
 
     foreach ($toko_ids as $toko_id) {
         // query insert data
-        $query = "INSERT INTO barang VALUES ('', '$barang_kode', '$barang_kode_slug', '$barang_kode_count', '$barang_nama', '$barang_harga_beli', '$barang_harga', '$barang_harga_grosir_1', '$barang_harga_grosir_2', '$barang_harga_s2', '$barang_harga_grosir_1_s2', '$barang_harga_grosir_2_s2', '$barang_harga_s3', '$barang_harga_grosir_1_s3', '$barang_harga_grosir_2_s3', '$barang_stock', '$barang_tanggal', '$kategori_id', '$kategori_id', '$satuan_id', '$satuan_id', '$satuan_id_2', '$satuan_id_3', '$satuan_isi_1', '$satuan_isi_2', '$satuan_isi_3', '$barang_deskripsi', '$barang_option_sn', '', '$toko_id', '$barang_option_konsi', '$barang_status', '$kode_suplier')";
+        $query = "INSERT INTO barang VALUES ('', '$barang_kode', '$barang_kode_slug', '$barang_kode_count', '$barang_nama', '$barang_harga_beli', '$barang_harga', '$barang_harga_grosir_1', '$barang_harga_grosir_2', '$barang_harga_s2', '$barang_harga_grosir_1_s2', '$barang_harga_grosir_2_s2', '$barang_harga_s3', '$barang_harga_grosir_1_s3', '$barang_harga_grosir_2_s3', '$barang_harga_s4', '$barang_harga_grosir_1_s4', '$barang_harga_grosir_2_s4', '$barang_stock', '$barang_tanggal', '$kategori_id', '$kategori_id', '$satuan_id', '$satuan_id', '$satuan_id_2', '$satuan_id_3', '$satuan_id_4', '$satuan_isi_1', '$satuan_isi_2', '$satuan_isi_3', '$satuan_isi_4', '$barang_deskripsi', '$barang_option_sn', '', '$toko_id', '$barang_option_konsi', '$barang_status', '$kode_suplier')";
         if (!mysqli_query($conn, $query)) {
             $success = false;
         }
@@ -449,13 +455,18 @@ function editBarang($data)
     $barang_harga_s3 = mysqli_real_escape_string($conn, $data["barang_harga_s3"]);
     $barang_harga_grosir_1_s3 = mysqli_real_escape_string($conn, $data["barang_harga_grosir_1_s3"]);
     $barang_harga_grosir_2_s3 = mysqli_real_escape_string($conn, $data["barang_harga_grosir_2_s3"]);
+    $barang_harga_s4 = isset($data["barang_harga_s4"]) ? mysqli_real_escape_string($conn, $data["barang_harga_s4"]) : '0';
+    $barang_harga_grosir_1_s4 = isset($data["barang_harga_grosir_1_s4"]) ? mysqli_real_escape_string($conn, $data["barang_harga_grosir_1_s4"]) : '0';
+    $barang_harga_grosir_2_s4 = isset($data["barang_harga_grosir_2_s4"]) ? mysqli_real_escape_string($conn, $data["barang_harga_grosir_2_s4"]) : '0';
     $barang_kategori_id = mysqli_real_escape_string($conn, $data["barang_kategori_id"]);
     $kategori_id = mysqli_real_escape_string($conn, $data["kategori_id"]);
     $satuan_id = mysqli_real_escape_string($conn, $data["satuan_id"]);
-    $satuan_id_2 = mysqli_real_escape_string($conn, $data["satuan_id_2"]);
-    $satuan_id_3 = mysqli_real_escape_string($conn, $data["satuan_id_3"]);
-    $satuan_isi_2 = mysqli_real_escape_string($conn, $data["satuan_isi_2"]);
-    $satuan_isi_3 = mysqli_real_escape_string($conn, $data["satuan_isi_3"]);
+    $satuan_id_2 = isset($data["satuan_id_2"]) ? mysqli_real_escape_string($conn, $data["satuan_id_2"]) : '';
+    $satuan_id_3 = isset($data["satuan_id_3"]) ? mysqli_real_escape_string($conn, $data["satuan_id_3"]) : '';
+    $satuan_id_4 = isset($data["satuan_id_4"]) ? mysqli_real_escape_string($conn, $data["satuan_id_4"]) : '';
+    $satuan_isi_2 = isset($data["satuan_isi_2"]) ? mysqli_real_escape_string($conn, $data["satuan_isi_2"]) : '';
+    $satuan_isi_3 = isset($data["satuan_isi_3"]) ? mysqli_real_escape_string($conn, $data["satuan_isi_3"]) : '';
+    $satuan_isi_4 = isset($data["satuan_isi_4"]) ? mysqli_real_escape_string($conn, $data["satuan_isi_4"]) : '';
     $barang_option_sn = mysqli_real_escape_string($conn, $data["barang_option_sn"]);
     $barang_option_konsi = mysqli_real_escape_string($conn, $data["barang_konsi"]);
     $barang_stock = mysqli_real_escape_string($conn, $data["barang_stock"]);
@@ -482,14 +493,19 @@ function editBarang($data)
                     barang_harga_s3 = '$barang_harga_s3',
                     barang_harga_grosir_1_s3 = '$barang_harga_grosir_1_s3',
                     barang_harga_grosir_2_s3 = '$barang_harga_grosir_2_s3',
+                    barang_harga_s4 = '$barang_harga_s4',
+                    barang_harga_grosir_1_s4 = '$barang_harga_grosir_1_s4',
+                    barang_harga_grosir_2_s4 = '$barang_harga_grosir_2_s4',
                     barang_kategori_id = '$barang_kategori_id',
                     kategori_id = '$kategori_id',
                     satuan_id = '$satuan_id',
                     barang_satuan_id = '$barang_satuan_id',
                     satuan_id_2 = '$satuan_id_2',
                     satuan_id_3 = '$satuan_id_3',
+                    satuan_id_4 = '$satuan_id_4',
                     satuan_isi_2 = '$satuan_isi_2',
                     satuan_isi_3 = '$satuan_isi_3',
+                    satuan_isi_4 = '$satuan_isi_4',
                     barang_deskripsi = '$barang_deskripsi',
                     barang_option_sn = '$barang_option_sn',
                     barang_konsi = '$barang_option_konsi'
@@ -524,8 +540,9 @@ function editBarangCabang($data)
     $barang_stock = mysqli_real_escape_string($conn, $data["barang_stock"]);
     $barang_satuan_id = mysqli_real_escape_string($conn, $data["barang_satuan_id"]);
     $satuan_id = mysqli_real_escape_string($conn, $data["satuan_id"]);
-    $satuan_id_2 = mysqli_real_escape_string($conn, $data["satuan_id_2"]);
-    $satuan_id_3 = mysqli_real_escape_string($conn, $data["satuan_id_3"]);
+    $satuan_id_2 = isset($data["satuan_id_2"]) ? mysqli_real_escape_string($conn, $data["satuan_id_2"]) : '';
+    $satuan_id_3 = isset($data["satuan_id_3"]) ? mysqli_real_escape_string($conn, $data["satuan_id_3"]) : '';
+    $satuan_id_4 = isset($data["satuan_id_4"]) ? mysqli_real_escape_string($conn, $data["satuan_id_4"]) : '';
     $barang_kategori_id = mysqli_real_escape_string($conn, $data["barang_kategori_id"]);
     $kategori_id = mysqli_real_escape_string($conn, $data["kategori_id"]);
 
@@ -538,6 +555,7 @@ function editBarangCabang($data)
             satuan_id = '$satuan_id', 
             satuan_id_2 = '$satuan_id_2', 
             satuan_id_3 = '$satuan_id_3', 
+            satuan_id_4 = '$satuan_id_4', 
             barang_kategori_id = '$barang_kategori_id',
             kategori_id = '$kategori_id'
         WHERE 

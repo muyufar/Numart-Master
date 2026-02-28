@@ -19,9 +19,10 @@ $columns = [
     'barang_harga_beli', 'barang_harga', 'barang_harga_grosir_1', 'barang_harga_grosir_2', 
     'barang_harga_s2', 'barang_harga_grosir_1_s2', 'barang_harga_grosir_2_s2', 
     'barang_harga_s3', 'barang_harga_grosir_1_s3', 'barang_harga_grosir_2_s3', 
+    'barang_harga_s4', 'barang_harga_grosir_1_s4', 'barang_harga_grosir_2_s4', 
     'barang_stock', 'barang_tanggal', 'barang_kategori_id', 'kategori_id', 
-    'barang_satuan_id', 'satuan_id', 'satuan_id_2', 'satuan_id_3', 'satuan_isi_1', 
-    'satuan_isi_2', 'satuan_isi_3', 'barang_deskripsi', 'barang_option_sn', 
+    'barang_satuan_id', 'satuan_id', 'satuan_id_2', 'satuan_id_3', 'satuan_id_4', 'satuan_isi_1', 
+    'satuan_isi_2', 'satuan_isi_3', 'satuan_isi_4', 'barang_deskripsi', 'barang_option_sn', 
     'barang_terjual', 'barang_cabang', 'barang_konsi'
 ];
 
@@ -37,8 +38,8 @@ $data = [
     [
         '6576587689687612', 'slug-6576587689687612', 1, 'Barang Tes Coba', 
         '2000', '3000', 4000, 5000, 6000, 7000, 8000, 
-        9000, 10000, 11000, '50', '2024-11-10', 14, '14', 
-        '4', '4', 2, 3, 10, 20, 30, 'Deskripsi barang tes', 
+        9000, 10000, 11000, 12000, 13000, 14000, '50', '2024-11-10', 14, '14', 
+        '4', '4', 2, 3, 4, 10, 20, 30, 40, 'Deskripsi barang tes', 
         0, 0, 0, 0
     ],
     // Tambahkan data contoh lainnya jika perlu
