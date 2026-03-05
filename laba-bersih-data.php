@@ -38,8 +38,9 @@ if (isset($_POST["submit"])) {
   }
 }
 
-$labaBersih = query("SELECT * FROM laba_bersih WHERE lb_cabang = $sessionCabang")[0];
-$listCabang = query("SELECT * FROM toko ");
+$resultLabaBersih = query("SELECT * FROM laba_bersih WHERE lb_cabang = $sessionCabang");
+$labaBersih = !empty($resultLabaBersih) ? $resultLabaBersih[0] : null;
+$listCabang = query("SELECT * FROM toko WHERE toko_status = '1' ORDER BY toko_cabang ASC");
 ?>
 
 <!-- Content Wrapper. Contains page content -->
@@ -374,6 +375,29 @@ $listCabang = query("SELECT * FROM toko ");
               </div>
             </div>
           </div>
+
+          <!-- Baris 6: Selisih Kas -->
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="add-selisih-kas">Selisih Kas</label>
+                <input type="number" step="0.01" name="selisih_kas" class="form-control" id="add-selisih-kas" placeholder="0.00" value="0">
+                <small class="form-text text-muted">
+                  <strong>Catatan:</strong> 
+                  <br>- Nilai <strong>negatif</strong> = Kas diterima lebih kecil dari yang tercatat (Beban Selisih Kas)
+                  <br>- Nilai <strong>positif</strong> = Kas diterima lebih besar dari yang tercatat (Pendapatan Selisih Kas)
+                  <br>- Kosongkan jika tidak ada selisih
+                </small>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="add-keterangan-selisih">Keterangan Selisih Kas</label>
+                <textarea name="keterangan_selisih" id="add-keterangan-selisih" class="form-control" rows="2" placeholder="Jelaskan penyebab selisih kas (opsional)"></textarea>
+                <small class="form-text text-muted">Contoh: Selisih pembayaran pembelian barang, selisih kas penjualan tunai</small>
+              </div>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -504,6 +528,8 @@ $listCabang = query("SELECT * FROM toko ");
     const keterangan = item?.keterangan || ''
     const pj = item?.name || ''
     const tag = item?.tag || ''
+    const selisihKas = item?.selisih_kas || '0'
+    const keteranganSelisih = item?.keterangan_selisih || ''
 
     // Set values that don't depend on kategori loading
     $('#add-jenis-transaksi').val(jenisTransaksi)
@@ -514,6 +540,8 @@ $listCabang = query("SELECT * FROM toko ");
     $('#add-keterangan').val(keterangan)
     $('#add-pj').val(pj)
     $('#add-tag').val(tag)
+    $('#add-selisih-kas').val(selisihKas)
+    $('#add-keterangan-selisih').val(keteranganSelisih)
 
     // Update labels berdasarkan jenis transaksi
     updateLabelsByJenisTransaksi()
@@ -956,8 +984,9 @@ $listCabang = query("SELECT * FROM toko ");
     // Reset form
     $('#form-add')[0].reset()
     $('#add-akun-debit, #add-akun-kredit').val(null).trigger('change')
-    $('#add-bunga, #add-pajak').val('0')
+    $('#add-bunga, #add-pajak, #add-selisih-kas').val('0')
     $('#add-total').val('')
+    $('#add-keterangan-selisih').val('')
     // Set default date to today
     const today = new Date().toISOString().split('T')[0]
     $('#add-tanggal').val(today)
@@ -1170,11 +1199,19 @@ $listCabang = query("SELECT * FROM toko ");
         if ($('#add-tag').val().trim()) {
           formData.append('tag', $('#add-tag').val().trim());
         }
+        const selisihKasVal = parseFloat($('#add-selisih-kas').val()) || 0;
+        if (selisihKasVal != 0) {
+          formData.append('selisih_kas', selisihKasVal);
+          if ($('#add-keterangan-selisih').val().trim()) {
+            formData.append('keterangan_selisih', $('#add-keterangan-selisih').val().trim());
+          }
+        }
         formData.append('file_lampiran', fileInput.files[0]);
         contentType = false; // Let jQuery set it automatically for FormData
         processData = false; // Don't process FormData
       } else {
         // Use JSON for regular data
+        const selisihKasVal = parseFloat($('#add-selisih-kas').val()) || 0;
         formData = {
           date: tanggal.val(),
           jenis_transaksi: jenisTransaksi.val(),
@@ -1190,6 +1227,12 @@ $listCabang = query("SELECT * FROM toko ");
           name: pj.val().trim(),
           tag: $('#add-tag').val().trim() || null
         };
+        if (selisihKasVal != 0) {
+          formData.selisih_kas = selisihKasVal;
+          if ($('#add-keterangan-selisih').val().trim()) {
+            formData.keterangan_selisih = $('#add-keterangan-selisih').val().trim();
+          }
+        }
       }
 
       // Debug: Log form data
@@ -1243,8 +1286,9 @@ $listCabang = query("SELECT * FROM toko ");
       $('#form-add')[0].reset()
       // Reset Select2
       $('#add-akun-debit, #add-akun-kredit').val(null).trigger('change')
-      $('#add-bunga, #add-pajak').val('0')
+      $('#add-bunga, #add-pajak, #add-selisih-kas').val('0')
       $('#add-total').val('')
+      $('#add-keterangan-selisih').val('')
       $('#btn-add').prop('disabled', false).html('Simpan')
     })
   })

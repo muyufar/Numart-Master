@@ -140,17 +140,31 @@ $hpp = mysqli_fetch_assoc($q_hpp)['total_hpp'] ?? 0;
 /* -------------------------------------------
    4. Pendapatan Lain-lain (laba.tipe = 0)
    CATATAN: Menggunakan l.date (tanggal transaksi dilakukan), BUKAN created_at (tanggal dibuat)
+   - Mendukung double-entry: ambil dari akun_kredit jika jenis_transaksi ada, atau dari kategori jika tidak
+   - Termasuk Pendapatan Selisih Kas (kode akun 4-2001)
 ------------------------------------------- */
 $q_pendapatan_lain = mysqli_query($conn, "
   SELECT 
     COALESCE(lk.name, 'Tanpa Kategori') AS kategori_nama,
     SUM(CAST(REPLACE(REPLACE(l.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) AS total 
   FROM laba l
-  LEFT JOIN laba_kategori lk ON CAST(l.kategori AS UNSIGNED) = lk.id
+  LEFT JOIN laba_kategori lk ON (
+    CASE 
+      WHEN l.jenis_transaksi IS NOT NULL AND l.akun_kredit IS NOT NULL THEN CAST(l.akun_kredit AS UNSIGNED) = lk.id
+      ELSE CAST(l.kategori AS UNSIGNED) = lk.id
+    END
+  )
   WHERE l.tipe = 0
   AND l.cabang = '$cabang'
   AND l.date >= '$tanggal_awal 00:00:00'
   AND l.date <= '$tanggal_akhir 23:59:59'
+  AND (lk.kategori = 'pendapatan' OR lk.kategori IS NULL)
+  AND (
+    -- Untuk transaksi selisih kas (kode akun 4-2001), hanya ambil jika jenis_transaksi = 'selisih_kas'
+    (lk.kode_akun = '4-2001' AND l.jenis_transaksi = 'selisih_kas') OR
+    -- Untuk transaksi pendapatan lainnya, ambil semua
+    (lk.kode_akun != '4-2001' OR lk.kode_akun IS NULL)
+  )
   GROUP BY lk.name
   ORDER BY lk.name
 ");
@@ -166,18 +180,31 @@ while ($row = mysqli_fetch_assoc($q_pendapatan_lain)) {
    CATATAN: 
    - Menggunakan l.date (tanggal transaksi dilakukan), BUKAN created_at (tanggal dibuat)
    - Hanya kategori dengan label 'beban' yang masuk ke Beban Operasi
+   - Mendukung double-entry: ambil dari akun_debit jika jenis_transaksi ada, atau dari kategori jika tidak
+   - Termasuk Beban Selisih Kas (kode akun 9-2001)
 ------------------------------------------- */
 $q_pengeluaran = mysqli_query($conn, "
   SELECT 
     COALESCE(lk.name, 'Tanpa Kategori') AS kategori_nama,
     SUM(CAST(REPLACE(REPLACE(l.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) AS total 
   FROM laba l
-  LEFT JOIN laba_kategori lk ON CAST(l.kategori AS UNSIGNED) = lk.id
+  LEFT JOIN laba_kategori lk ON (
+    CASE 
+      WHEN l.jenis_transaksi IS NOT NULL AND l.akun_debit IS NOT NULL THEN CAST(l.akun_debit AS UNSIGNED) = lk.id
+      ELSE CAST(l.kategori AS UNSIGNED) = lk.id
+    END
+  )
   WHERE l.tipe = 1
   AND l.cabang = '$cabang'
   AND l.date >= '$tanggal_awal 00:00:00'
   AND l.date <= '$tanggal_akhir 23:59:59'
   AND lk.kategori = 'beban'
+  AND (
+    -- Untuk transaksi selisih kas (kode akun 9-2001), hanya ambil jika jenis_transaksi = 'selisih_kas'
+    (lk.kode_akun = '9-2001' AND l.jenis_transaksi = 'selisih_kas') OR
+    -- Untuk transaksi beban lainnya, ambil semua
+    (lk.kode_akun != '9-2001' OR lk.kode_akun IS NULL)
+  )
   GROUP BY lk.name
   ORDER BY lk.name
 ");

@@ -501,6 +501,8 @@ function handlePost() {
     $date = mysqli_real_escape_string($conn, $data['date']);
     $name = mysqli_real_escape_string($conn, $data['name']);
     $tag = isset($data['tag']) ? mysqli_real_escape_string($conn, $data['tag']) : null;
+    $selisih_kas = isset($data['selisih_kas']) ? floatval($data['selisih_kas']) : 0;
+    $keterangan_selisih = isset($data['keterangan_selisih']) ? mysqli_real_escape_string($conn, $data['keterangan_selisih']) : null;
     
     // Use uploaded file path if available
     if ($file_lampiran_path !== null) {
@@ -527,6 +529,12 @@ function handlePost() {
     }
     if ($tag) {
         $keterangan_full .= " | Tag: $tag";
+    }
+    if ($selisih_kas != 0) {
+        $keterangan_full .= " | Selisih Kas: " . number_format($selisih_kas, 2, ',', '.');
+        if ($keterangan_selisih) {
+            $keterangan_full .= " (" . $keterangan_selisih . ")";
+        }
     }
     $keterangan_full = mysqli_real_escape_string($conn, $keterangan_full);
     
@@ -612,6 +620,11 @@ function handlePost() {
             updateSaldoAkunSingle($conn, $kategori, $jumlah, $tipe, $cabang);
         }
         
+        // Handle selisih kas jika ada
+        if ($selisih_kas != 0) {
+            processSelisihKas($conn, $selisih_kas, $cabang, $keterangan_selisih, $date, $name);
+        }
+        
         echo json_encode([
             'success' => true,
             'message' => 'Data berhasil disimpan',
@@ -640,6 +653,171 @@ function getAkunInfoForTransfer($conn, $akun_id) {
     }
     
     return null;
+}
+
+/**
+ * Fungsi untuk mencari atau membuat akun selisih kas
+ * @param mysqli $conn Database connection
+ * @param string $kode_akun Kode akun (9-2001 untuk beban, 4-2001 untuk pendapatan)
+ * @param string $nama_akun Nama akun
+ * @param string $kategori Kategori akun ('beban' atau 'pendapatan')
+ * @param int $cabang ID cabang
+ * @return int ID akun yang ditemukan atau dibuat
+ */
+function findOrCreateSelisihKasAkun($conn, $kode_akun, $nama_akun, $kategori, $cabang) {
+    // Cek apakah kolom cabang ada
+    $check_column = "SHOW COLUMNS FROM laba_kategori LIKE 'cabang'";
+    $column_result = mysqli_query($conn, $check_column);
+    $cabang_column_exists = ($column_result && mysqli_num_rows($column_result) > 0);
+    
+    // Cari akun dengan kode_akun yang sesuai
+    if ($cabang_column_exists) {
+        // Cari akun dengan cabang yang sama terlebih dahulu
+        $query = "SELECT id FROM laba_kategori WHERE kode_akun = '$kode_akun' AND cabang = $cabang LIMIT 1";
+        $result = mysqli_query($conn, $query);
+        
+        // Jika tidak ditemukan, cari cabang 0 atau NULL
+        if (!$result || mysqli_num_rows($result) == 0) {
+            $query = "SELECT id FROM laba_kategori WHERE kode_akun = '$kode_akun' AND (cabang = 0 OR cabang IS NULL) ORDER BY cabang DESC LIMIT 1";
+            $result = mysqli_query($conn, $query);
+        }
+    } else {
+        $query = "SELECT id FROM laba_kategori WHERE kode_akun = '$kode_akun' LIMIT 1";
+        $result = mysqli_query($conn, $query);
+    }
+    
+    if ($result && mysqli_num_rows($result) > 0) {
+        $row = mysqli_fetch_assoc($result);
+        return intval($row['id']);
+    }
+    
+    // Akun belum ada, buat baru
+    $tipe_akun = ($kategori == 'beban') ? 'debit' : 'kredit';
+    
+    if ($cabang_column_exists) {
+        $insert_query = "INSERT INTO laba_kategori (name, kode_akun, kategori, tipe_akun, saldo, cabang) 
+                        VALUES ('$nama_akun', '$kode_akun', '$kategori', '$tipe_akun', 0, $cabang)";
+    } else {
+        $insert_query = "INSERT INTO laba_kategori (name, kode_akun, kategori, tipe_akun, saldo) 
+                        VALUES ('$nama_akun', '$kode_akun', '$kategori', '$tipe_akun', 0)";
+    }
+    
+    if (mysqli_query($conn, $insert_query)) {
+        return mysqli_insert_id($conn);
+    }
+    
+    return 0;
+}
+
+/**
+ * Fungsi untuk memproses selisih kas
+ * @param mysqli $conn Database connection
+ * @param float $selisih_kas Nilai selisih kas (negatif = beban, positif = pendapatan)
+ * @param int $cabang ID cabang
+ * @param string|null $keterangan_selisih Keterangan selisih kas
+ * @param string $date Tanggal transaksi
+ * @param string $name Nama penanggung jawab
+ */
+function processSelisihKas($conn, $selisih_kas, $cabang, $keterangan_selisih, $date, $name) {
+    // Tentukan akun selisih kas berdasarkan nilai
+    if ($selisih_kas < 0) {
+        // Negatif = Beban Selisih Kas (9-2001)
+        $kode_akun = '9-2001';
+        $nama_akun = 'BEBAN SELISIH KAS';
+        $kategori = 'beban';
+        $akun_selisih_id = findOrCreateSelisihKasAkun($conn, $kode_akun, $nama_akun, $kategori, $cabang);
+        $jumlah_selisih = abs($selisih_kas); // Gunakan nilai absolut
+        $tipe_transaksi = 1; // Pengeluaran
+    } else {
+        // Positif = Pendapatan Selisih Kas (4-2001)
+        $kode_akun = '4-2001';
+        $nama_akun = 'PENDAPATAN SELISIH KAS';
+        $kategori = 'pendapatan';
+        $akun_selisih_id = findOrCreateSelisihKasAkun($conn, $kode_akun, $nama_akun, $kategori, $cabang);
+        $jumlah_selisih = $selisih_kas;
+        $tipe_transaksi = 0; // Pendapatan
+    }
+    
+    if ($akun_selisih_id == 0) {
+        error_log("Gagal membuat atau menemukan akun selisih kas");
+        return;
+    }
+    
+    // Cari akun Kas Tunai (1-1100) untuk cabang yang sama
+    $check_column = "SHOW COLUMNS FROM laba_kategori LIKE 'cabang'";
+    $column_result = mysqli_query($conn, $check_column);
+    $cabang_column_exists = ($column_result && mysqli_num_rows($column_result) > 0);
+    
+    $akun_kas_id = null;
+    
+    if ($cabang_column_exists) {
+        // Cari akun Kas Tunai untuk cabang yang sama terlebih dahulu
+        $query_kas = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1100' AND cabang = $cabang LIMIT 1";
+        $result_kas = mysqli_query($conn, $query_kas);
+        
+        // Jika tidak ditemukan, cari cabang 0 atau NULL
+        if (!$result_kas || mysqli_num_rows($result_kas) == 0) {
+            $query_kas = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1100' AND (cabang = 0 OR cabang IS NULL) ORDER BY cabang DESC LIMIT 1";
+            $result_kas = mysqli_query($conn, $query_kas);
+        }
+    } else {
+        $query_kas = "SELECT id FROM laba_kategori WHERE kode_akun = '1-1100' LIMIT 1";
+        $result_kas = mysqli_query($conn, $query_kas);
+    }
+    
+    if ($result_kas && mysqli_num_rows($result_kas) > 0) {
+        $row_kas = mysqli_fetch_assoc($result_kas);
+        $akun_kas_id = intval($row_kas['id']);
+    }
+    
+    // Buat transaksi selisih kas
+    $id_selisih = uniqid('selisih_', true);
+    $keterangan_selisih_full = "Selisih Kas: " . number_format($selisih_kas, 2, ',', '.');
+    if ($keterangan_selisih) {
+        $keterangan_selisih_full .= " - " . mysqli_real_escape_string($conn, $keterangan_selisih);
+    }
+    
+    // Check if new columns exist
+    $check_columns = "SHOW COLUMNS FROM laba LIKE 'jenis_transaksi'";
+    $column_result = mysqli_query($conn, $check_columns);
+    $has_new_columns = ($column_result && mysqli_num_rows($column_result) > 0);
+    
+    if ($has_new_columns && $akun_kas_id) {
+        // Gunakan double-entry system
+        // Jika beban: Debit Beban Selisih Kas, Kredit Kas Tunai
+        // Jika pendapatan: Debit Kas Tunai, Kredit Pendapatan Selisih Kas
+        if ($selisih_kas < 0) {
+            $akun_debit_selisih = $akun_selisih_id;
+            $akun_kredit_selisih = $akun_kas_id;
+        } else {
+            $akun_debit_selisih = $akun_kas_id;
+            $akun_kredit_selisih = $akun_selisih_id;
+        }
+        
+        $query_selisih = "INSERT INTO laba (id, tipe, jenis_transaksi, kategori, akun_debit, akun_kredit, nominal, bunga, pajak, total, jumlah, keterangan, cabang, date, name, created_at) 
+                         VALUES ('$id_selisih', $tipe_transaksi, 'selisih_kas', " .
+                         ($akun_selisih_id ? "'$akun_selisih_id'" : "NULL") . ", " .
+                         ($akun_debit_selisih ? "'$akun_debit_selisih'" : "NULL") . ", " .
+                         ($akun_kredit_selisih ? "'$akun_kredit_selisih'" : "NULL") . ", " .
+                         "'$jumlah_selisih', 0, 0, '$jumlah_selisih', '$jumlah_selisih', " .
+                         "'$keterangan_selisih_full', $cabang, '$date', '$name', NOW())";
+        
+        if (mysqli_query($conn, $query_selisih)) {
+            // Update saldo akun
+            updateSaldoAkun($conn, $akun_debit_selisih, $akun_kredit_selisih, $jumlah_selisih, $cabang, 'debit');
+            updateSaldoAkun($conn, $akun_kredit_selisih, $akun_debit_selisih, $jumlah_selisih, $cabang, 'kredit');
+        }
+    } else {
+        // Backward compatibility: simpan sebagai transaksi biasa
+        $query_selisih = "INSERT INTO laba (id, tipe, kategori, jumlah, keterangan, cabang, date, name, created_at) 
+                         VALUES ('$id_selisih', $tipe_transaksi, '$akun_selisih_id', '$jumlah_selisih', '$keterangan_selisih_full', $cabang, '$date', '$name', NOW())";
+        mysqli_query($conn, $query_selisih);
+        
+        // Update saldo untuk backward compatibility
+        if ($akun_selisih_id) {
+            updateSaldoAkunSingle($conn, $akun_selisih_id, $jumlah_selisih, $tipe_transaksi, $cabang);
+        }
+    }
 }
 
 /**
@@ -715,9 +893,35 @@ function updateSaldoAkun($conn, $akun_id, $akun_pasangan, $jumlah, $cabang, $pos
         if ($tipe_akun == 'debit') {
             $perubahan_saldo = -$perubahan_saldo;
         }
+    } else if ($kategori == 'beban') {
+        // Beban: normal saldo DEBIT (menambah beban = mengurangi laba)
+        // Debit = menambah beban, Kredit = mengurangi beban
+        if ($posisi == 'debit') {
+            $perubahan_saldo = $jumlah; // Menambah beban
+        } else {
+            $perubahan_saldo = -$jumlah; // Mengurangi beban
+        }
+        
+        // Jika tipe_akun = 'kredit' (kontra beban), kebalikannya
+        if ($tipe_akun == 'kredit') {
+            $perubahan_saldo = -$perubahan_saldo;
+        }
+    } else if ($kategori == 'pendapatan') {
+        // Pendapatan: normal saldo KREDIT (menambah pendapatan = menambah laba)
+        // Debit = mengurangi pendapatan, Kredit = menambah pendapatan
+        if ($posisi == 'debit') {
+            $perubahan_saldo = -$jumlah; // Mengurangi pendapatan
+        } else {
+            $perubahan_saldo = $jumlah; // Menambah pendapatan
+        }
+        
+        // Jika tipe_akun = 'debit' (kontra pendapatan), kebalikannya
+        if ($tipe_akun == 'debit') {
+            $perubahan_saldo = -$perubahan_saldo;
+        }
     } else {
-        // Untuk kategori lain (pendapatan, beban), tidak update saldo di neraca
-        // Karena pendapatan dan beban masuk ke laporan laba rugi, bukan neraca
+        // Untuk kategori lain yang tidak dikenal, tidak update saldo
+        error_log("Kategori '$kategori' tidak dikenali untuk update saldo");
         return;
     }
     
