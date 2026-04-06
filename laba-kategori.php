@@ -127,12 +127,17 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
           </div>
           
           <div class="table-responsive">
-            <table class="table table-striped table-bordered">
+            <table class="table table-striped table-bordered" id="laba-kategori-table">
               <thead class="thead-default">
                 <tr>
                   <th class="text-center" style="width: 50px;">No</th>
-                  <th>Kode Akun</th>
-                  <th>Nama Kategori</th>
+                  <th class="sortable-th text-nowrap" data-sort="kode_akun" style="cursor: pointer;" title="Klik untuk urutkan kode akun">
+                    Kode Akun <span class="sort-indicator text-primary font-weight-bold" aria-hidden="true"></span>
+                  </th>
+                  <th class="text-center text-nowrap" style="width: 110px;">Level COA</th>
+                  <th class="sortable-th" data-sort="name" style="cursor: pointer;" title="Klik untuk urutkan nama">
+                    Nama Kategori <span class="sort-indicator text-primary font-weight-bold" aria-hidden="true"></span>
+                  </th>
                   <th>Kategori</th>
                   <th>Tipe Akun</th>
                   <th>Cabang</th>
@@ -165,17 +170,20 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
           <input type="hidden" id="add-id" value="">
 
           <div class="form-group">
-            <label for="add-name">Nama Kategori <span class="text-danger">*</span></label>
-            <input type="text" name="name" id="add-name" class="form-control" placeholder="Contoh: KAS, BIAYA LOGISTIK" required>
+            <label for="add-cabang-kategori">Cabang <span class="text-danger">*</span></label>
+            <select class="form-control" id="add-cabang-kategori" required>
+              <option value="">Pilih Cabang</option>
+              <?php foreach ($listCabang as $c) : ?>
+                <option value="<?= $c['toko_cabang']; ?>"
+                  <?= $_SESSION['user_cabang'] == $c['toko_cabang'] ? ' selected' : '' ?>>
+                  <?= $c['toko_nama']; ?> - <?= $c['toko_kota']; ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+            <small class="form-text text-muted">Akun ini akan hanya tersedia untuk cabang yang dipilih</small>
             <div class="invalid-feedback">
-              Nama kategori harus diisi
+              Cabang harus diisi
             </div>
-          </div>
-
-          <div class="form-group">
-            <label for="add-kode-akun">Kode Akun</label>
-            <input type="text" name="kode_akun" id="add-kode-akun" class="form-control" placeholder="Contoh: 1-10001, 5-50001">
-            <small class="form-text text-muted">Opsional: Kode akun untuk neraca</small>
           </div>
 
           <div class="form-group">
@@ -188,9 +196,61 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
               <option value="pendapatan">Pendapatan</option>
               <option value="beban">Beban</option>
             </select>
+            <small class="form-text text-muted">Menentukan kelompok neraca / laba rugi untuk hierarki COA</small>
             <div class="invalid-feedback">
               Kategori harus diisi
             </div>
+          </div>
+
+          <div class="form-group" id="coa-level-type-wrap">
+            <label for="add-coa-level-type">Jenis / Level akun <span class="text-danger">*</span></label>
+            <select class="form-control" id="add-coa-level-type">
+              <option value="1">Kepala Level 1 (akar COA, tanpa induk)</option>
+              <option value="2">Kepala Level 2 (induk: level 1)</option>
+              <option value="3">Kepala Level 3 (induk: level 2)</option>
+              <option value="4" selected>Sub akun / rinci (induk: level 3)</option>
+            </select>
+            <small class="form-text text-muted">Level 1 tidak membutuhkan pilihan induk; level lain pilih induk di bawah.</small>
+          </div>
+
+          <div id="coa-hierarchy-wrap">
+            <p class="text-muted small mb-2" id="coa-hierarchy-hint">Pilih induk sesuai level. Untuk sub akun, pilih rantai level 1 → 2 → 3.</p>
+            <div class="form-group" id="wrap-coa-l1">
+              <label for="add-coa-l1">Induk: Kepala Akun Level 1 <span class="text-danger">*</span></label>
+              <select class="form-control" id="add-coa-l1">
+                <option value="">Pilih kepala level 1</option>
+              </select>
+              <div class="invalid-feedback">Pilih induk level 1</div>
+            </div>
+            <div class="form-group" id="wrap-coa-l2">
+              <label for="add-coa-l2">Induk: Kepala Akun Level 2 <span class="text-danger">*</span></label>
+              <select class="form-control" id="add-coa-l2">
+                <option value="">Pilih kepala level 2</option>
+              </select>
+              <div class="invalid-feedback">Pilih induk level 2</div>
+            </div>
+            <div class="form-group" id="wrap-coa-l3">
+              <label for="add-coa-l3">Induk: Kepala Akun Level 3 <span class="text-danger">*</span></label>
+              <select class="form-control" id="add-coa-l3">
+                <option value="">Pilih kepala level 3</option>
+              </select>
+              <div class="invalid-feedback">Pilih induk level 3</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="add-name" id="add-name-label">Nama Sub Akun (COA) <span class="text-danger">*</span></label>
+            <input type="text" name="name" id="add-name" class="form-control" placeholder="Contoh: KAS KECIL, BIAYA LOGISTIK" required>
+            <small class="form-text text-muted" id="add-name-hint">Nama akun rinci di bawah kepala level 3</small>
+            <div class="invalid-feedback">
+              Nama sub akun harus diisi
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="add-kode-akun">Kode Akun</label>
+            <input type="text" name="kode_akun" id="add-kode-akun" class="form-control" placeholder="Contoh: 1-10001, 5-50001">
+            <small class="form-text text-muted">Opsional: Kode akun untuk neraca</small>
           </div>
 
           <div class="form-group">
@@ -210,23 +270,6 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
             <input type="number" step="0.01" name="saldo" id="add-saldo" class="form-control" placeholder="0" value="0">
             <small class="form-text text-muted">Saldo awal untuk neraca</small>
           </div>
-
-          <div class="form-group">
-            <label for="add-cabang-kategori">Cabang <span class="text-danger">*</span></label>
-            <select class="form-control" id="add-cabang-kategori" required>
-              <option value="">Pilih Cabang</option>
-              <?php foreach ($listCabang as $c) : ?>
-                <option value="<?= $c['toko_cabang']; ?>"
-                  <?= $_SESSION['user_cabang'] == $c['toko_cabang'] ? ' selected' : '' ?>>
-                  <?= $c['toko_nama']; ?> - <?= $c['toko_kota']; ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-            <small class="form-text text-muted">Akun ini akan hanya tersedia untuk cabang yang dipilih</small>
-            <div class="invalid-feedback">
-              Cabang harus diisi
-            </div>
-          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -241,6 +284,116 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
 <script>
   const base_url = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '')
   const cabangList = <?php echo json_encode($listCabang); ?>;
+  const defaultUserCabang = <?php echo json_encode(isset($_SESSION['user_cabang']) ? (string) $_SESSION['user_cabang'] : ''); ?>;
+
+  /** null = urutan default API (kategori, nama); selain itu: kode_akun | name */
+  let tableSortState = { field: null, dir: 'asc' }
+
+  function updateSortHeaderUI() {
+    $('#laba-kategori-table .sortable-th').each(function() {
+      const f = $(this).data('sort')
+      const $ind = $(this).find('.sort-indicator')
+      if (tableSortState.field === f) {
+        $ind.text(tableSortState.dir === 'asc' ? ' ▲' : ' ▼')
+        $(this).attr('title', tableSortState.dir === 'asc' ? 'Urut naik (A→Z); klik untuk balik' : 'Urut turun (Z→A); klik untuk balik')
+      } else {
+        $ind.text('')
+        $(this).attr('title', 'Klik untuk urutkan kolom ini (naik lalu turun)')
+      }
+    })
+  }
+
+  function getCoaTargetLevel() {
+    const v = parseInt($('#add-coa-level-type').val(), 10)
+    return (v >= 1 && v <= 4) ? v : 4
+  }
+
+  function applyCoaLevelMode() {
+    if (!['create', 'edit'].includes($('#form-type').val())) return
+    const t = getCoaTargetLevel()
+    $('#wrap-coa-l1').toggle(t >= 2)
+    $('#wrap-coa-l2').toggle(t >= 3)
+    $('#wrap-coa-l3').toggle(t >= 4)
+    const hint = $('#coa-hierarchy-hint')
+    if (t === 1) {
+      hint.text('Akun level 1 tidak memiliki induk. Isi nama dan simpan.')
+    } else if (t === 2) {
+      hint.text('Pilih satu kepala level 1 sebagai induk.')
+    } else if (t === 3) {
+      hint.text('Pilih rantai induk: level 1 lalu level 2.')
+    } else {
+      hint.text('Pilih rantai induk: level 1 → 2 → 3 untuk sub akun rinci.')
+    }
+    if (t === 1) {
+      $('#add-name-label').html('Nama Kepala Akun Level 1 <span class="text-danger">*</span>')
+      $('#add-name-hint').show().text('Akar COA pada kelompok kategori yang dipilih')
+    } else if (t === 2) {
+      $('#add-name-label').html('Nama Kepala Akun Level 2 <span class="text-danger">*</span>')
+      $('#add-name-hint').show().text('Nama di bawah induk level 1')
+    } else if (t === 3) {
+      $('#add-name-label').html('Nama Kepala Akun Level 3 <span class="text-danger">*</span>')
+      $('#add-name-hint').show().text('Nama di bawah induk level 2')
+    } else {
+      $('#add-name-label').html('Nama Sub Akun (COA) <span class="text-danger">*</span>')
+      $('#add-name-hint').show().text('Nama akun rinci di bawah kepala level 3')
+    }
+  }
+
+  function resetCoaSelect($sel, placeholder) {
+    $sel.empty().append($('<option>', { value: '', text: placeholder }))
+  }
+
+  function loadCoaHierarchyLevel(parentId, level, targetSelectId, done) {
+    const cab = $('#add-cabang-kategori').val()
+    const kat = $('#add-kategori').val()
+    const $sel = $(targetSelectId)
+    const ph = level === 1
+      ? 'Pilih kepala level 1'
+      : (level === 2 ? 'Pilih kepala level 2' : 'Pilih kepala level 3')
+    resetCoaSelect($sel, ph)
+    if (!cab || !kat) {
+      if (done) done()
+      return
+    }
+    $.ajax({
+      url: base_url + '/api/laba-kategori.php',
+      method: 'GET',
+      data: { for_hierarchy: 1, cabang: cab, kategori: kat, parent_id: parentId },
+      dataType: 'json',
+      success: (res) => {
+        if (!res.success && res.message) {
+          Swal.fire({ icon: 'warning', title: 'Hierarki COA', text: res.message })
+        }
+        if (res.success && res.data && res.data.length) {
+          res.data.forEach((row) => {
+            const code = row.kode_akun ? ' (' + row.kode_akun + ')' : ''
+            $sel.append($('<option>', { value: row.id, text: row.name + code }))
+          })
+        }
+        if (done) done()
+      },
+      error: (xhr) => {
+        let msg = 'Gagal memuat hierarki COA'
+        try {
+          const j = JSON.parse(xhr.responseText)
+          if (j.message) msg = j.message
+        } catch (e) { /* ignore */ }
+        Swal.fire({ icon: 'error', title: 'Hierarki COA', text: msg })
+        if (done) done()
+      }
+    })
+  }
+
+  function refreshCoaLevel1() {
+    if (!['create', 'edit'].includes($('#form-type').val())) return
+    const t = getCoaTargetLevel()
+    if (t < 2) return
+    $('#add-coa-l2').val('')
+    $('#add-coa-l3').val('')
+    resetCoaSelect($('#add-coa-l2'), 'Pilih kepala level 2')
+    resetCoaSelect($('#add-coa-l3'), 'Pilih kepala level 3')
+    loadCoaHierarchyLevel(0, 1, '#add-coa-l1', null)
+  }
 
   const deleteKategori = (id) => {
     Swal.fire({
@@ -291,17 +444,86 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
     });
   }
 
+  const setCoaHierarchyEditable = (editable) => {
+    $('#add-coa-level-type').prop('disabled', !editable)
+    $('#add-coa-l1, #add-coa-l2, #add-coa-l3').prop('disabled', !editable)
+  }
+
   const editKategori = (item) => {
     $('#form-type').val('edit')
     $('#modal-title').text('Edit Kategori Laba')
+    $('#coa-level-type-wrap').show()
+    $('#coa-hierarchy-wrap').show()
+    setCoaHierarchyEditable(true)
+    $('#add-name-hint').show()
     $('#add-id').val(item.id)
     $('#add-name').val(item.name)
     $('#add-kode-akun').val(item.kode_akun || '')
     $('#add-kategori').val(item.kategori)
     $('#add-tipe-akun').val(item.tipe_akun)
     $('#add-saldo').val(item.saldo || 0)
-    $('#add-cabang-kategori').val(item.cabang || '')
-    $('#modal-add').modal('show')
+    $('#add-cabang-kategori').val(item.cabang !== undefined && item.cabang !== null ? String(item.cabang) : '')
+
+    const lvl = parseInt(item.level, 10)
+    if (lvl >= 1 && lvl <= 4) {
+      $('#add-coa-level-type').val(String(lvl))
+    } else {
+      $('#add-coa-level-type').val('4')
+    }
+    applyCoaLevelMode()
+
+    const finishEditLoad = () => {
+      $('#modal-add').modal('show')
+    }
+
+    const ajaxParams = { id: item.id, with_ancestors: 1 }
+    if (item.cabang !== undefined && item.cabang !== null && item.cabang !== '') {
+      ajaxParams.cabang = item.cabang
+    }
+
+    $.ajax({
+      url: base_url + '/api/laba-kategori.php',
+      method: 'GET',
+      data: ajaxParams,
+      dataType: 'json',
+      success: (res) => {
+        if (!res.success || !res.data) {
+          finishEditLoad()
+          return
+        }
+        const row = res.data
+        const anc = row.ancestor_ids || []
+        const level = parseInt(row.level, 10) || parseInt(item.level, 10) || 4
+        $('#add-coa-level-type').val(String(level >= 1 && level <= 4 ? level : 4))
+        applyCoaLevelMode()
+
+        if (level === 1) {
+          loadCoaHierarchyLevel(0, 1, '#add-coa-l1', finishEditLoad)
+          return
+        }
+        loadCoaHierarchyLevel(0, 1, '#add-coa-l1', () => {
+          if (anc[0]) $('#add-coa-l1').val(String(anc[0]))
+          if (level === 2) {
+            finishEditLoad()
+            return
+          }
+          loadCoaHierarchyLevel(parseInt(anc[0], 10), 2, '#add-coa-l2', () => {
+            if (anc[1]) $('#add-coa-l2').val(String(anc[1]))
+            if (level === 3) {
+              finishEditLoad()
+              return
+            }
+            loadCoaHierarchyLevel(parseInt(anc[1], 10), 3, '#add-coa-l3', () => {
+              if (anc[2]) $('#add-coa-l3').val(String(anc[2]))
+              finishEditLoad()
+            })
+          })
+        })
+      },
+      error: () => {
+        finishEditLoad()
+      }
+    })
   }
 
   const getData = () => {
@@ -328,7 +550,11 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
     if (filterKategori) params.append('kategori', filterKategori);
     if (filterTipeAkun) params.append('tipe_akun', filterTipeAkun);
     if (search) params.append('search', search);
-    
+    if (tableSortState.field) {
+      params.append('sort', tableSortState.field)
+      params.append('order', tableSortState.dir)
+    }
+
     const queryString = params.toString();
     const url = base_url + '/api/laba-kategori.php' + (queryString ? '?' + queryString : '');
     
@@ -340,7 +566,7 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
       },
       dataType: 'json',
       beforeSend: () => {
-        $('#table-data').html('<tr><td class="text-center" colspan="8">Loading...</td></tr>')
+        $('#table-data').html('<tr><td class="text-center" colspan="9">Loading...</td></tr>')
       },
       success: (res) => {
         let html = ''
@@ -357,6 +583,15 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
               'debit': 'badge-primary',
               'kredit': 'badge-success'
             }
+            const lvl = parseInt(item.level, 10) || 0
+            const levelUi = {
+              1: { badge: 'badge-dark', label: 'L1', title: 'Kepala Level 1 (akar)', border: '#343a40' },
+              2: { badge: 'badge-primary', label: 'L2', title: 'Kepala Level 2', border: '#007bff' },
+              3: { badge: 'badge-info', label: 'L3', title: 'Kepala Level 3', border: '#17a2b8' },
+              4: { badge: 'badge-success', label: 'Sub', title: 'Sub akun / rinci', border: '#28a745' }
+            }
+            const lu = levelUi[lvl] || { badge: 'badge-secondary', label: '-', title: 'Level tidak diketahui', border: '#6c757d' }
+            const namePad = lvl > 1 ? Math.min((lvl - 1) * 14, 48) : 0
             // Get cabang name
             let cabangName = '-';
             if (item.cabang === 0 || item.cabang === '0') {
@@ -378,12 +613,16 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
               maximumFractionDigits: 2
             })
             const saldoClass = saldo >= 0 ? 'text-success' : 'text-danger'
-            
+            const rowTip = (item.keterangan_hierarki || lu.title).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
             html += `
-              <tr>
+              <tr style="border-left: 4px solid ${lu.border};" title="${rowTip}">
                 <td class="text-center">${index + 1}</td>
                 <td>${item.kode_akun || '-'}</td>
-                <td>${item.name}</td>
+                <td class="text-center align-middle">
+                  <span class="badge ${lu.badge} px-2 py-1" title="${lu.title}">${lu.label}</span>
+                </td>
+                <td style="${namePad ? 'padding-left: ' + namePad + 'px' : ''}">${item.name}</td>
                 <td><span class="badge ${kategoriBadge[item.kategori] || 'badge-secondary'}">${item.kategori ? item.kategori.toUpperCase() : '-'}</span></td>
                 <td><span class="badge ${tipeBadge[item.tipe_akun] || 'badge-secondary'}">${item.tipe_akun ? item.tipe_akun.toUpperCase() : '-'}</span></td>
                 <td>${cabangName}</td>
@@ -396,7 +635,7 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
             `
           })
         } else {
-          html = '<tr><td class="text-center" colspan="8">Tidak ada data</td></tr>'
+          html = '<tr><td class="text-center" colspan="9">Tidak ada data</td></tr>'
         }
         $('#table-data').html(html)
       },
@@ -413,7 +652,7 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
         } catch (e) {
           console.log('Error parsing response:', e)
         }
-        $('#table-data').html(`<tr><td class="text-center" colspan="8">${errorMsg}</td></tr>`)
+        $('#table-data').html(`<tr><td class="text-center" colspan="9">${errorMsg}</td></tr>`)
       }
     })
   }
@@ -421,12 +660,62 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
   $('#btn-add-modal').click(() => {
     $('#form-type').val('create')
     $('#modal-title').text('Tambah Kategori Laba')
+    $('#coa-level-type-wrap').show()
+    $('#coa-hierarchy-wrap').show()
+    setCoaHierarchyEditable(true)
     $('#form-add')[0].reset()
     $('#add-id').val('')
     $('#add-saldo').val('0')
     $('#add-name').removeClass('is-invalid')
     $('#add-kategori').removeClass('is-invalid')
     $('#add-tipe-akun').removeClass('is-invalid')
+    $('#add-coa-l1, #add-coa-l2, #add-coa-l3').removeClass('is-invalid')
+    $('#add-coa-level-type').val('4')
+    if (defaultUserCabang !== '') {
+      $('#add-cabang-kategori').val(defaultUserCabang)
+    }
+    resetCoaSelect($('#add-coa-l1'), 'Pilih kepala level 1')
+    resetCoaSelect($('#add-coa-l2'), 'Pilih kepala level 2')
+    resetCoaSelect($('#add-coa-l3'), 'Pilih kepala level 3')
+    applyCoaLevelMode()
+    setTimeout(() => { refreshCoaLevel1() }, 0)
+  })
+
+  $(document).on('change', '#add-coa-level-type', function() {
+    if (!['create', 'edit'].includes($('#form-type').val())) return
+    $('#add-coa-l1, #add-coa-l2, #add-coa-l3').removeClass('is-invalid')
+    resetCoaSelect($('#add-coa-l1'), 'Pilih kepala level 1')
+    resetCoaSelect($('#add-coa-l2'), 'Pilih kepala level 2')
+    resetCoaSelect($('#add-coa-l3'), 'Pilih kepala level 3')
+    applyCoaLevelMode()
+    refreshCoaLevel1()
+  })
+
+  $(document).on('change', '#add-cabang-kategori, #add-kategori', function() {
+    if (!['create', 'edit'].includes($('#form-type').val())) return
+    refreshCoaLevel1()
+  })
+
+  $(document).on('change', '#add-coa-l1', function() {
+    if (!['create', 'edit'].includes($('#form-type').val())) return
+    const pid = $(this).val()
+    $('#add-coa-l3').val('')
+    resetCoaSelect($('#add-coa-l3'), 'Pilih kepala level 3')
+    if (!pid) {
+      resetCoaSelect($('#add-coa-l2'), 'Pilih kepala level 2')
+      return
+    }
+    loadCoaHierarchyLevel(parseInt(pid, 10), 2, '#add-coa-l2', null)
+  })
+
+  $(document).on('change', '#add-coa-l2', function() {
+    if (!['create', 'edit'].includes($('#form-type').val())) return
+    const pid = $(this).val()
+    if (!pid) {
+      resetCoaSelect($('#add-coa-l3'), 'Pilih kepala level 3')
+      return
+    }
+    loadCoaHierarchyLevel(parseInt(pid, 10), 3, '#add-coa-l3', null)
   })
 
   // Apply filter
@@ -440,6 +729,21 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
     $('#filter-kategori').val('')
     $('#filter-tipe-akun').val('')
     $('#search-input').val('')
+    tableSortState = { field: null, dir: 'asc' }
+    updateSortHeaderUI()
+    getData()
+  })
+
+  $(document).on('click', '#laba-kategori-table .sortable-th', function() {
+    const f = $(this).data('sort')
+    if (!f) return
+    if (tableSortState.field === f) {
+      tableSortState.dir = tableSortState.dir === 'asc' ? 'desc' : 'asc'
+    } else {
+      tableSortState.field = f
+      tableSortState.dir = 'asc'
+    }
+    updateSortHeaderUI()
     getData()
   })
 
@@ -465,6 +769,7 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
   })
 
   $(document).ready(function() {
+    updateSortHeaderUI()
     getData()
 
     // Button click triggers form submission
@@ -504,6 +809,30 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
         isValid = false
       }
 
+      const isCreate = $('#form-type').val() === 'create'
+      const isEdit = $('#form-type').val() === 'edit'
+      const coaT = (isCreate || isEdit) ? getCoaTargetLevel() : 4
+      if (isCreate || isEdit) {
+        const l1 = $('#add-coa-l1')
+        const l2 = $('#add-coa-l2')
+        const l3 = $('#add-coa-l3')
+        l1.removeClass('is-invalid')
+        l2.removeClass('is-invalid')
+        l3.removeClass('is-invalid')
+        if (coaT >= 2 && !l1.val()) {
+          l1.addClass('is-invalid')
+          isValid = false
+        }
+        if (coaT >= 3 && !l2.val()) {
+          l2.addClass('is-invalid')
+          isValid = false
+        }
+        if (coaT >= 4 && !l3.val()) {
+          l3.addClass('is-invalid')
+          isValid = false
+        }
+      }
+
       if (!isValid) {
         alert('Periksa kembali isian, field yang bertanda * wajib diisi')
         return
@@ -518,10 +847,26 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
         cabang: cabangKategori.val()
       }
 
-      if ($('#form-type').val() == 'create') {
+      if (isCreate) {
+        formData.coa_level = coaT
+        if (coaT === 2) {
+          formData.parent_id = $('#add-coa-l1').val()
+        } else if (coaT === 3) {
+          formData.parent_id = $('#add-coa-l2').val()
+        } else if (coaT === 4) {
+          formData.parent_id = $('#add-coa-l3').val()
+        }
         return createKategori(formData)
-      } else if ($('#form-type').val() == 'edit') {
+      } else if (isEdit) {
         formData.id = $('#add-id').val()
+        formData.coa_level = coaT
+        if (coaT === 2) {
+          formData.parent_id = $('#add-coa-l1').val()
+        } else if (coaT === 3) {
+          formData.parent_id = $('#add-coa-l2').val()
+        } else if (coaT === 4) {
+          formData.parent_id = $('#add-coa-l3').val()
+        }
         return updateKategori(formData)
       } else {
         Swal.fire({
@@ -536,6 +881,7 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
       $('#add-name').removeClass('is-invalid')
       $('#add-kategori').removeClass('is-invalid')
       $('#add-tipe-akun').removeClass('is-invalid')
+      setCoaHierarchyEditable(true)
       $('#form-add')[0].reset()
       $('#btn-add').prop('disabled', false).html('Simpan')
     })
