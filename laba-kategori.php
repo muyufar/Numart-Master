@@ -461,7 +461,7 @@ $listCabang = query("SELECT * FROM toko ORDER BY toko_nama");
     $('#add-kode-akun').val(item.kode_akun || '')
     $('#add-kategori').val(item.kategori)
     $('#add-tipe-akun').val(item.tipe_akun)
-    $('#add-saldo').val(item.saldo || 0)
+    $('#add-saldo').val(item.saldo_asli !== undefined && item.saldo_asli !== null ? item.saldo_asli : (item.saldo || 0))
     $('#add-cabang-kategori').val(item.cabang !== undefined && item.cabang !== null ? String(item.cabang) : '')
 
     const lvl = parseInt(item.level, 10)

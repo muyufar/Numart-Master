@@ -187,6 +187,97 @@ function labaKategoriEnrichHierarchyFields($conn, array &$row)
     $row['keterangan_hierarki'] = implode(' › ', $parts);
 }
 
+/**
+ * Saldo tampilan per akun = saldo sendiri + jumlah saldo semua turunan (sub → menjumlah ke L3, L2, L1).
+ * Menggunakan filter cabang yang sama dengan daftar (GET cabang / session).
+ *
+ * @param mysqli $conn
+ * @param mixed  $cabang nilai $cabang dari handleGet (boleh null)
+ *
+ * @return array<int, float> id => saldo teragregasi
+ */
+function labaKategoriSaldoAggregatedMap($conn, $cabang_column_exists, $cabang)
+{
+    if (! labaKategoriColumnExists($conn, 'parent_id')) {
+        return [];
+    }
+
+    $aggQuery = 'SELECT id, parent_id, saldo FROM laba_kategori WHERE 1=1';
+    if (isset($_GET['cabang']) && $_GET['cabang'] !== '' && $cabang_column_exists) {
+        $cabang_filter = (int) $_GET['cabang'];
+        if ($cabang_filter === 0) {
+            $aggQuery .= ' AND cabang = 0';
+        } else {
+            $aggQuery .= " AND cabang = $cabang_filter";
+        }
+    } elseif ($cabang !== null && $cabang_column_exists) {
+        if ($cabang != 0) {
+            $aggQuery .= " AND cabang = $cabang";
+        }
+    }
+
+    $res = mysqli_query($conn, $aggQuery);
+    if (! $res) {
+        return [];
+    }
+
+    $byId = [];
+    $children = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $id = (int) $row['id'];
+        $byId[$id] = $row;
+        $pid = isset($row['parent_id']) ? (int) $row['parent_id'] : 0;
+        if ($pid <= 0) {
+            $pid = 0;
+        }
+        if (! isset($children[$pid])) {
+            $children[$pid] = [];
+        }
+        $children[$pid][] = $id;
+    }
+
+    if ($byId === []) {
+        return [];
+    }
+
+    $memo = [];
+    $rollup = function ($id) use (&$rollup, &$byId, &$children, &$memo) {
+        if (isset($memo[$id])) {
+            return $memo[$id];
+        }
+        $own = floatval($byId[$id]['saldo'] ?? 0);
+        $sum = $own;
+        foreach ($children[$id] ?? [] as $cid) {
+            $sum += $rollup($cid);
+        }
+        $memo[$id] = $sum;
+
+        return $sum;
+    };
+
+    $out = [];
+    foreach (array_keys($byId) as $id) {
+        $out[$id] = $rollup($id);
+    }
+
+    return $out;
+}
+
+/**
+ * Terapkan saldo teragregasi: saldo_asli = kolom DB, saldo = jumlah turunan.
+ *
+ * @param array<int, float> $aggMap
+ */
+function labaKategoriApplySaldoRollup(array &$row, array $aggMap)
+{
+    $id = isset($row['id']) ? (int) $row['id'] : 0;
+    if ($id <= 0 || ! isset($aggMap[$id])) {
+        return;
+    }
+    $row['saldo_asli'] = isset($row['saldo']) ? floatval($row['saldo']) : 0.0;
+    $row['saldo'] = round($aggMap[$id], 2);
+}
+
 switch ($method) {
     case 'GET':
         handleGet();
@@ -324,6 +415,10 @@ function handleGet()
             if (isset($_GET['with_ancestors']) && $_GET['with_ancestors'] === '1' && labaKategoriColumnExists($conn, 'parent_id')) {
                 $row['ancestor_ids'] = labaKategoriAncestorIdsRootToParent($conn, $id);
             }
+            if (! isset($_GET['skip_saldo_rollup']) || $_GET['skip_saldo_rollup'] !== '1') {
+                $aggMapSingle = labaKategoriSaldoAggregatedMap($conn, $cabang_column_exists, $cabang);
+                labaKategoriApplySaldoRollup($row, $aggMapSingle);
+            }
             if (! isset($_GET['skip_hierarchy_keterangan']) || $_GET['skip_hierarchy_keterangan'] !== '1') {
                 labaKategoriEnrichHierarchyFields($conn, $row);
             }
@@ -411,9 +506,18 @@ function handleGet()
     }
 
     $skip_enrich = isset($_GET['skip_hierarchy_keterangan']) && $_GET['skip_hierarchy_keterangan'] === '1';
+    $skip_saldo_rollup = isset($_GET['skip_saldo_rollup']) && $_GET['skip_saldo_rollup'] === '1';
+
+    $aggMapList = [];
+    if (! $skip_saldo_rollup) {
+        $aggMapList = labaKategoriSaldoAggregatedMap($conn, $cabang_column_exists, $cabang);
+    }
 
     $data = [];
     while ($row = mysqli_fetch_assoc($result)) {
+        if (! $skip_saldo_rollup && $aggMapList !== []) {
+            labaKategoriApplySaldoRollup($row, $aggMapList);
+        }
         if (! $skip_enrich) {
             labaKategoriEnrichHierarchyFields($conn, $row);
         }
