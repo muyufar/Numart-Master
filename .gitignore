@@ -1,0 +1,26 @@
+.env
+.env.*
+
+# Dependencies
+vendor/
+node_modules/
+
+# Runtime / cache / logs
+storage/
+cache/
+tmp/
+*.log
+
+# Uploads (user-generated)
+uploads/
+image/lampiran_*
+
+# Local IDE / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Database dumps
+database/*.sql
