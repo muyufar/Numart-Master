@@ -20,6 +20,35 @@ function rupiah($angka)
   return 'Rp ' . number_format($angka, 0, ',', '.');
 }
 
+/** Huruf penomoran: 0=a, 25=z, 26=aa (tanpa batas jumlah baris) */
+function labaAccrual_indexToLetter($index)
+{
+  $s = '';
+  $i = (int) $index;
+  while ($i >= 0) {
+    $s = chr($i % 26 + ord('a')) . $s;
+    $i = intdiv($i, 26) - 1;
+  }
+  return $s;
+}
+
+/** Beban keuangan/bunga/admin bank → kelompok Beban Lain (COA 9-xxxx + cadangan nama) */
+function labaAccrual_isBebanLainFinansial($kode_akun, $nama_kategori)
+{
+  $k = strtoupper(trim((string) $kode_akun));
+  if ($k !== '' && preg_match('/^9-/', $k)) {
+    return true;
+  }
+  $n = strtolower((string) $nama_kategori);
+  $keywords = ['beban bunga', 'bunga bank', 'bunga rk', 'administrasi bank', 'admin bank', 'beban pinjaman', 'provisi', 'beban provisi', 'biaya bank'];
+  foreach ($keywords as $kw) {
+    if ($n !== '' && strpos($n, $kw) !== false) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Hitung total persediaan barang awal (accrual) dari tabel pembelian.
  *
@@ -56,8 +85,13 @@ function hitungPersediaanAwalDariPembelian($conn, $cabang, $tanggal_awal, $tangg
       GROUP BY barang_id
     ) AS per_barang
   ";
+  
+  $queryhitung = "SELECT 
+    COALESCE(SUM(barang_qty * barang_harga_beli), 0) AS total_persediaan_awal
+FROM pembelian
+WHERE pembelian_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir' AND pembelian_cabang = '$cabang'";
 
-  $q = mysqli_query($conn, $sql);
+  $q = mysqli_query($conn, $queryhitung);
   if (!$q) {
     return 0;
   }
@@ -81,21 +115,139 @@ $toko = query("SELECT * FROM toko WHERE toko_cabang = '$cabang' ")[0];
 ------------------------------------------- */
 
 if ($cabang == 0) {
-  // CABANG 0: Persediaan dari pembelian (rata-rata transaksi per barang_id, lalu dijumlah)
-  $persediaan_awal = hitungPersediaanAwalDariPembelian($conn, $cabang, $tanggal_awal, $tanggal_akhir);
-  $persediaan_label = "Total Pembelian Barang";
-} else {
-  // CABANG LAIN: Persediaan dari transfer stock yang diterima dari cabang 0
-  $q_transfer_masuk = mysqli_query($conn, "
-    SELECT COALESCE(SUM(tpk_qty * b.barang_harga_beli), 0) AS total
-    FROM transfer_produk_keluar tpk
-    JOIN barang b ON tpk.tpk_barang_id = b.barang_id
-    WHERE tpk.tpk_pengirim_cabang = 0
-    AND tpk.tpk_penerima_cabang = '$cabang'
-    AND tpk.tpk_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  // CABANG 0 (NUGROSIR/GUDANG): gunakan nilai persediaan barang yang ada (stock * harga beli).
+  // Mutasi periode akan dipakai untuk menghitung persediaan akhir sesuai formula operasional.
+  $q_persediaan_barang_ada = mysqli_query($conn, "
+    SELECT COALESCE(SUM(b.barang_stock * b.barang_harga_beli), 0) AS total
+    FROM barang b
+    WHERE b.barang_cabang = 0 AND b.barang_status = '1'
   ");
-  $persediaan_awal = mysqli_fetch_assoc($q_transfer_masuk)['total'] ?? 0;
-  $persediaan_label = "Transfer Stock dari Pusat";
+  $persediaan_awal = ($q_persediaan_barang_ada && ($r = mysqli_fetch_assoc($q_persediaan_barang_ada))) ? (float) ($r['total'] ?? 0) : 0;
+  $persediaan_label = "Persediaan Barang yang Ada (Gudang NU Grosir)";
+
+  // Komponen mutasi untuk cabang 0 (dipakai di rumus persediaan akhir)
+  $total_pembelian_masuk = 0;
+  $total_retur_pembelian = 0;
+  $total_transfer_balik = 0;
+  $total_retur_penjualan = 0;
+  $total_barang_hilang = 0;
+
+  // Pembelian & Retur Pembelian (jika qty negatif)
+  $q_pb = mysqli_query($conn, "
+    SELECT
+      COALESCE(SUM(CASE WHEN barang_qty > 0 THEN barang_qty * barang_harga_beli ELSE 0 END), 0) AS pembelian_masuk,
+      COALESCE(SUM(CASE WHEN barang_qty < 0 THEN ABS(barang_qty) * barang_harga_beli ELSE 0 END), 0) AS retur_pembelian
+    FROM pembelian
+    WHERE pembelian_cabang = 0
+      AND pembelian_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  ");
+  if ($q_pb && ($r = mysqli_fetch_assoc($q_pb))) {
+    $total_pembelian_masuk = (float) ($r['pembelian_masuk'] ?? 0);
+    $total_retur_pembelian = (float) ($r['retur_pembelian'] ?? 0);
+  }
+
+  // Transfer balik (TF masuk ke gudang/pusat)
+  $q_tf_balik = mysqli_query($conn, "
+    SELECT COALESCE(SUM(tpm.tpm_qty * b.barang_harga_beli), 0) AS total
+    FROM transfer_produk_masuk tpm
+    JOIN barang b ON b.barang_kode_slug = tpm.tpm_kode_slug AND b.barang_cabang = 0
+    WHERE tpm.tpm_penerima_cabang = 0
+      AND tpm.tpm_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  ");
+  if ($q_tf_balik && ($r = mysqli_fetch_assoc($q_tf_balik))) {
+    $total_transfer_balik = (float) ($r['total'] ?? 0);
+  }
+
+  // Retur penjualan (barang kembali dari penjualan cabang 0)
+  $q_retur_jual = mysqli_query($conn, "
+    SELECT COALESCE(SUM(r.barang_stock * b.barang_harga_beli), 0) AS total
+    FROM retur r
+    JOIN invoice i ON i.penjualan_invoice = r.retur_invoice AND i.invoice_cabang = 0
+    JOIN barang b ON CAST(r.retur_barang_id AS UNSIGNED) = b.barang_id AND b.barang_cabang = 0
+    WHERE r.retur_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  ");
+  if ($q_retur_jual && ($r = mysqli_fetch_assoc($q_retur_jual))) {
+    $total_retur_penjualan = (float) ($r['total'] ?? 0);
+  }
+
+  // Barang hilang (diambil dari akun beban kehilangan barang 6-3200, jika dipakai)
+  $q_hilang = mysqli_query($conn, "
+    SELECT COALESCE(SUM(CAST(REPLACE(REPLACE(l.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))), 0) AS total
+    FROM laba l
+    LEFT JOIN laba_kategori lk ON (
+      CAST(l.kategori AS UNSIGNED) = lk.id
+      OR TRIM(COALESCE(l.kategori, '')) = TRIM(COALESCE(lk.kode_akun, ''))
+    )
+    WHERE l.tipe = 1
+      AND l.cabang = 0
+      AND l.date >= '$tanggal_awal 00:00:00'
+      AND l.date <= '$tanggal_akhir 23:59:59'
+      AND TRIM(COALESCE(lk.kode_akun, '')) = '6-3200'
+  ");
+  if ($q_hilang && ($r = mysqli_fetch_assoc($q_hilang))) {
+    $total_barang_hilang = (float) ($r['total'] ?? 0);
+  }
+} else {
+  // CABANG NUMART (selain 0): persediaan akhir dihitung dari persediaan barang yang ada + mutasi transfer.
+  $cabang_int = (int) $cabang;
+
+  // Persediaan barang yang ada (stock * harga beli) di cabang ini
+  $q_persediaan_barang_ada = mysqli_query($conn, "
+    SELECT COALESCE(SUM(b.barang_stock * b.barang_harga_beli), 0) AS total
+    FROM barang b
+    WHERE b.barang_cabang = $cabang_int AND b.barang_status = '1'
+  ");
+  $persediaan_awal = ($q_persediaan_barang_ada && ($r = mysqli_fetch_assoc($q_persediaan_barang_ada))) ? (float) ($r['total'] ?? 0) : 0;
+  $persediaan_label = "Persediaan Barang yang Ada";
+
+  // Mutasi periode untuk cabang numart:
+  // + transfer stock masuk (dari NUGrosir/pusat dan numart lain)
+  // + retur penjualan
+  // - transfer stock balik
+  $total_transfer_masuk = 0;
+  $total_transfer_balik = 0;
+  $total_retur_penjualan = 0;
+
+  // Transfer masuk (berdasarkan slug, pakai harga beli barang cabang ini)
+  $q_tf_masuk = mysqli_query($conn, "
+    SELECT COALESCE(SUM(tpm.tpm_qty * b.barang_harga_beli), 0) AS total
+    FROM transfer_produk_masuk tpm
+    JOIN barang b ON b.barang_kode_slug = tpm.tpm_kode_slug AND b.barang_cabang = $cabang_int
+    WHERE tpm.tpm_penerima_cabang = $cabang_int
+      AND tpm.tpm_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  ");
+  if ($q_tf_masuk && ($r = mysqli_fetch_assoc($q_tf_masuk))) {
+    $total_transfer_masuk = (float) ($r['total'] ?? 0);
+  }
+
+  // Transfer balik (keluar dari cabang ini ke cabang lain, termasuk balik ke gudang)
+  $q_tf_balik = mysqli_query($conn, "
+    SELECT COALESCE(SUM(tpk.tpk_qty * b.barang_harga_beli), 0) AS total
+    FROM transfer_produk_keluar tpk
+    JOIN barang b ON tpk.tpk_barang_id = b.barang_id AND b.barang_cabang = $cabang_int
+    WHERE tpk.tpk_pengirim_cabang = $cabang_int
+      AND tpk.tpk_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  ");
+  if ($q_tf_balik && ($r = mysqli_fetch_assoc($q_tf_balik))) {
+    $total_transfer_balik = (float) ($r['total'] ?? 0);
+  }
+
+  // Retur penjualan (barang kembali dari penjualan cabang ini)
+  $q_retur_jual = mysqli_query($conn, "
+    SELECT COALESCE(SUM(r.barang_stock * b.barang_harga_beli), 0) AS total
+    FROM retur r
+    JOIN invoice i ON i.penjualan_invoice = r.retur_invoice AND i.invoice_cabang = $cabang_int
+    JOIN barang b ON CAST(r.retur_barang_id AS UNSIGNED) = b.barang_id AND b.barang_cabang = $cabang_int
+    WHERE r.retur_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
+  ");
+  if ($q_retur_jual && ($r = mysqli_fetch_assoc($q_retur_jual))) {
+    $total_retur_penjualan = (float) ($r['total'] ?? 0);
+  }
+
+  // Variabel lain tidak dipakai untuk rumus cabang numart, tapi tetap diset agar aman dipakai di bagian lain.
+  $total_pembelian_masuk = 0;
+  $total_retur_pembelian = 0;
+  $total_barang_hilang = 0;
 }
 
 /* -------------------------------------------
@@ -138,41 +290,50 @@ $hpp = mysqli_fetch_assoc($q_hpp)['total_hpp'] ?? 0;
 // Persediaan Akhir akan dihitung setelah total_transfer_stok tersedia (untuk cabang 0)
 
 /* -------------------------------------------
-   4. Pendapatan Lain-lain (laba.tipe = 0)
-   CATATAN: Menggunakan l.date (tanggal transaksi dilakukan), BUKAN created_at (tanggal dibuat)
-   - Mendukung double-entry: ambil dari akun_kredit jika jenis_transaksi ada, atau dari kategori jika tidak
-   - Termasuk Pendapatan Selisih Kas (kode akun 4-2001)
+   4. Pendapatan Lain-lain dari tabel laba (laba.tipe = 0)
+   Hanya kategori yang terhubung ke COA 8-1400 (Pendapatan lain-lain / sub-akun 8-1400-%).
+   CATATAN: Menggunakan l.date (tanggal transaksi), BUKAN created_at.
 ------------------------------------------- */
+$pendapatan_lain_kode_akun_induk = '8-1400';
+
+$pendapatan_lain = [];
+$total_pendapatan_lain = 0;
+
 $q_pendapatan_lain = mysqli_query($conn, "
   SELECT 
-    COALESCE(lk.name, 'Tanpa Kategori') AS kategori_nama,
+    COALESCE(lk_kredit.name, lk.name, 'Tanpa Kategori') AS kategori_nama,
     SUM(CAST(REPLACE(REPLACE(l.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) AS total 
   FROM laba l
-  LEFT JOIN laba_kategori lk ON (
-    CASE 
-      WHEN l.jenis_transaksi IS NOT NULL AND l.akun_kredit IS NOT NULL THEN CAST(l.akun_kredit AS UNSIGNED) = lk.id
-      ELSE CAST(l.kategori AS UNSIGNED) = lk.id
-    END
-  )
+  LEFT JOIN laba_kategori lk_kredit
+    ON (
+      CAST(l.akun_kredit AS UNSIGNED) = lk_kredit.id
+      OR TRIM(COALESCE(l.akun_kredit, '')) = TRIM(COALESCE(lk_kredit.kode_akun, ''))
+    )
+  LEFT JOIN laba_kategori lk 
+    ON (
+      CAST(l.kategori AS UNSIGNED) = lk.id
+      OR TRIM(COALESCE(l.kategori, '')) = TRIM(COALESCE(lk.kode_akun, ''))
+    )
   WHERE l.tipe = 0
   AND l.cabang = '$cabang'
   AND l.date >= '$tanggal_awal 00:00:00'
   AND l.date <= '$tanggal_akhir 23:59:59'
-  AND (lk.kategori = 'pendapatan' OR lk.kategori IS NULL)
   AND (
-    -- Untuk transaksi selisih kas (kode akun 4-2001), hanya ambil jika jenis_transaksi = 'selisih_kas'
-    (lk.kode_akun = '4-2001' AND l.jenis_transaksi = 'selisih_kas') OR
-    -- Untuk transaksi pendapatan lainnya, ambil semua
-    (lk.kode_akun != '4-2001' OR lk.kode_akun IS NULL)
+    TRIM(COALESCE(lk_kredit.kode_akun, '')) = '$pendapatan_lain_kode_akun_induk'
+    OR TRIM(COALESCE(lk_kredit.kode_akun, '')) LIKE '$pendapatan_lain_kode_akun_induk-%'
+    OR TRIM(COALESCE(lk.kode_akun, '')) = '$pendapatan_lain_kode_akun_induk'
+    OR TRIM(COALESCE(lk.kode_akun, '')) LIKE '$pendapatan_lain_kode_akun_induk-%'
   )
-  GROUP BY lk.name
-  ORDER BY lk.name
+  GROUP BY COALESCE(lk_kredit.name, lk.name)
+  ORDER BY COALESCE(lk_kredit.name, lk.name)
 ");
-$pendapatan_lain = [];
-$total_pendapatan_lain = 0;
-while ($row = mysqli_fetch_assoc($q_pendapatan_lain)) {
-  $pendapatan_lain[] = $row;
-  $total_pendapatan_lain += $row['total'];
+if ($q_pendapatan_lain) {
+  while ($row = mysqli_fetch_assoc($q_pendapatan_lain)) {
+    $pendapatan_lain[] = $row;
+    $total_pendapatan_lain += $row['total'];
+  }
+} else {
+  error_log('pendapatan lain (8-1400): ' . mysqli_error($conn));
 }
 
 /* -------------------------------------------
@@ -180,97 +341,48 @@ while ($row = mysqli_fetch_assoc($q_pendapatan_lain)) {
    CATATAN: 
    - Menggunakan l.date (tanggal transaksi dilakukan), BUKAN created_at (tanggal dibuat)
    - Hanya kategori dengan label 'beban' yang masuk ke Beban Operasi
-   - Mendukung double-entry: ambil dari akun_debit jika jenis_transaksi ada, atau dari kategori jika tidak
-   - Termasuk Beban Selisih Kas (kode akun 9-2001)
 ------------------------------------------- */
 $q_pengeluaran = mysqli_query($conn, "
   SELECT 
     COALESCE(lk.name, 'Tanpa Kategori') AS kategori_nama,
+    MAX(COALESCE(lk.kode_akun, '')) AS kode_akun,
     SUM(CAST(REPLACE(REPLACE(l.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) AS total 
   FROM laba l
-  LEFT JOIN laba_kategori lk ON (
-    CASE 
-      WHEN l.jenis_transaksi IS NOT NULL AND l.akun_debit IS NOT NULL THEN CAST(l.akun_debit AS UNSIGNED) = lk.id
-      ELSE CAST(l.kategori AS UNSIGNED) = lk.id
-    END
-  )
+  LEFT JOIN laba_kategori lk ON CAST(l.kategori AS UNSIGNED) = lk.id
   WHERE l.tipe = 1
   AND l.cabang = '$cabang'
   AND l.date >= '$tanggal_awal 00:00:00'
   AND l.date <= '$tanggal_akhir 23:59:59'
   AND lk.kategori = 'beban'
-  AND (
-    -- Untuk transaksi selisih kas (kode akun 9-2001), hanya ambil jika jenis_transaksi = 'selisih_kas'
-    (lk.kode_akun = '9-2001' AND l.jenis_transaksi = 'selisih_kas') OR
-    -- Untuk transaksi beban lainnya, ambil semua
-    (lk.kode_akun != '9-2001' OR lk.kode_akun IS NULL)
-  )
   GROUP BY lk.name
   ORDER BY lk.name
 ");
 $pengeluaran = [];
+$pengeluaran_operasional = [];
+$pengeluaran_lain = [];
 $total_pengeluaran = 0;
+$total_beban_operasional = 0;
+$total_beban_lain_finansial = 0;
 while ($row = mysqli_fetch_assoc($q_pengeluaran)) {
   $pengeluaran[] = $row;
   $total_pengeluaran += $row['total'];
+  if (labaAccrual_isBebanLainFinansial($row['kode_akun'] ?? '', $row['kategori_nama'] ?? '')) {
+    $pengeluaran_lain[] = $row;
+    $total_beban_lain_finansial += $row['total'];
+  } else {
+    $pengeluaran_operasional[] = $row;
+    $total_beban_operasional += $row['total'];
+  }
 }
 
 /* -------------------------------------------
    6. Sharing Profit (khusus cabang 0)
    CATATAN: Hanya menghitung beban operasi (kategori 'beban')
 ------------------------------------------- */
+// Sharing Profit tidak dipakai di laporan ini karena sudah terwakili pada bagian
+// "Pendapatan Bagi Hasil". Jadi diset 0 agar tidak mempengaruhi ringkasan.
 $sharing_profit = 0;
 $sharing_detail = [];
-
-if ($cabang == 0) {
-  // Cabang 1 → 45%
-  $q_laba_cbg1 = mysqli_query($conn, "
-    SELECT 
-      (SUM(invoice_sub_total) 
-       - SUM(invoice_total_beli)
-       - COALESCE((
-          SELECT SUM(CAST(REPLACE(REPLACE(l2.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) 
-          FROM laba l2 
-          LEFT JOIN laba_kategori lk2 ON CAST(l2.kategori AS UNSIGNED) = lk2.id
-          WHERE l2.tipe = 1 
-          AND l2.cabang = 1 
-          AND l2.date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
-          AND lk2.kategori = 'beban'
-        ),0)
-      ) AS laba_bersih_cabang1
-    FROM invoice
-    WHERE invoice_cabang = 1
-    AND invoice_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
-  ");
-  $laba_cbg1 = mysqli_fetch_assoc($q_laba_cbg1)['laba_bersih_cabang1'] ?? 0;
-  $sharing_cbg1 = $laba_cbg1 * 0.45;
-  $sharing_profit += $sharing_cbg1;
-  $sharing_detail[] = ['nama' => 'Sharing Profit NUMART DUKUN (45%)', 'nilai' => $sharing_cbg1];
-
-  // Cabang 3 → 50%
-  $q_laba_cbg3 = mysqli_query($conn, "
-    SELECT 
-      (SUM(invoice_sub_total) 
-       - SUM(invoice_total_beli)
-       - COALESCE((
-          SELECT SUM(CAST(REPLACE(REPLACE(l2.jumlah, '.', ''), ',', '') AS DECIMAL(18,2))) 
-          FROM laba l2 
-          LEFT JOIN laba_kategori lk2 ON CAST(l2.kategori AS UNSIGNED) = lk2.id
-          WHERE l2.tipe = 1 
-          AND l2.cabang = 3 
-          AND l2.date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
-          AND lk2.kategori = 'beban'
-        ),0)
-      ) AS laba_bersih_cabang3
-    FROM invoice
-    WHERE invoice_cabang = 3
-    AND invoice_date BETWEEN '$tanggal_awal' AND '$tanggal_akhir'
-  ");
-  $laba_cbg3 = mysqli_fetch_assoc($q_laba_cbg3)['laba_bersih_cabang3'] ?? 0;
-  $sharing_cbg3 = $laba_cbg3 * 0.50;
-  $sharing_profit += $sharing_cbg3;
-  $sharing_detail[] = ['nama' => 'Sharing Profit PONDOK SRUMBUNG (50%)', 'nilai' => $sharing_cbg3];
-}
 
 /* -------------------------------------------
    7. Pendapatan Lain (Bagi Hasil dari Cabang)
@@ -399,11 +511,55 @@ $pendapatan_lain_detail[] = [
 /* -------------------------------------------
    8. Hitung Total Laba
 ------------------------------------------- */
-$total_pendapatan = $total_cash + $total_kredit + $total_pendapatan_lain + $sharing_profit;
+// Total pendapatan (penjualan + pendapatan lain-lain 8-1400)
+$total_pendapatan = $total_cash + $total_kredit + $total_pendapatan_lain;
 $laba_kotor = $total_penjualan - $hpp;
-$laba_operasi = $laba_kotor - $total_pengeluaran; // Laba Operasi = Laba Kotor - Beban Operasi
+// Laba sebelum beban = laba kotor + pendapatan lain-lain 8-1400
+$laba_sebelum_beban = $laba_kotor + $total_pendapatan_lain;
+$laba_operasi = $laba_sebelum_beban - $total_pengeluaran;
 $beban_lain = 0; // Beban Lain (bisa ditambahkan nanti jika diperlukan)
-$laba_bersih = $laba_operasi + $pendapatan_lain_bagi_hasil - $beban_lain;
+
+// Bagi hasil cabang NUMART (dibayar ke Nugrosir & PCNU)
+$biaya_cadangan_pajak = 0;
+$laba_sebelum_bagi_hasil = $laba_operasi;
+$bagi_hasil_nugrosir = 0;
+$bagi_hasil_pcnu = 0;
+$total_bagi_hasil = 0;
+
+if ((int) $cabang !== 0) {
+  $rate_nugrosir = 0.0;
+  $rate_pcnu = 0.0;
+  // Mengikuti skema pada halaman investor cabang
+  if ((int) $cabang === 1) { // Dukun
+    $rate_nugrosir = 0.45;
+    $rate_pcnu = 0.05;
+  } elseif ((int) $cabang === 2) { // Pakis
+    $rate_nugrosir = 0.30;
+    $rate_pcnu = 0.00;
+  } elseif ((int) $cabang === 3) { // Srumbung
+    $rate_nugrosir = 0.25;
+    $rate_pcnu = 0.05;
+  } elseif ((int) $cabang === 5) { // Tegalrejo
+    $rate_nugrosir = 0.45;
+    $rate_pcnu = 0.05;
+  }
+
+  // Cadangan pajak 5% dari laba operasi (dasar bagi hasil)
+  $biaya_cadangan_pajak = $laba_operasi * 0.05;
+  $laba_sebelum_bagi_hasil = $laba_operasi - $biaya_cadangan_pajak;
+
+  $bagi_hasil_nugrosir = $laba_sebelum_bagi_hasil * $rate_nugrosir;
+  $bagi_hasil_pcnu = $laba_sebelum_bagi_hasil * $rate_pcnu;
+  $total_bagi_hasil = $bagi_hasil_nugrosir + $bagi_hasil_pcnu;
+}
+
+if ((int) $cabang === 0) {
+  // Pusat menerima "Pendapatan Bagi Hasil"
+  $laba_bersih = $laba_operasi + $pendapatan_lain_bagi_hasil - $beban_lain;
+} else {
+  // Cabang mengeluarkan bagi hasil
+  $laba_bersih = $laba_sebelum_bagi_hasil - $total_bagi_hasil - $beban_lain;
+}
 // Note: DP sudah termasuk dalam total_cash, jadi tidak perlu ditambahkan lagi
 $persentase = $hpp > 0 ? round(($laba_bersih / $hpp) * 100, 2) : 0;
 
@@ -699,11 +855,32 @@ if ($cabang == 0) {
    9. HITUNG PERSEDIAAN AKHIR
 ======================================================== */
 if ($cabang == 0) {
-  // CABANG 0: Persediaan Akhir = Pembelian - HPP - Transfer ke cabang lain
-  $persediaan_akhir = $persediaan_awal - $hpp - $total_transfer_stok;
+  // CABANG 0 (NUGROSIR/GUDANG): rumus operasional persediaan akhir
+  // Persediaan Akhir = Persediaan barang yang ada
+  //  + Pembelian + Transfer Balik + Retur Penjualan
+  //  - Transfer Stock ke Cabang - Penjualan(HPP) - Retur Pembelian - Barang Hilang
+  $persediaan_akhir =
+    $persediaan_awal
+    + $total_pembelian_masuk
+    + $total_transfer_balik
+    + $total_retur_penjualan
+    - $total_transfer_stok
+    - $hpp
+    - $total_retur_pembelian
+    - $total_barang_hilang;
 } else {
-  // CABANG LAIN: Persediaan Akhir = Transfer dari Pusat - HPP
-  $persediaan_akhir = $persediaan_awal - $hpp;
+  // CABANG NUMART: Persediaan akhir sesuai rumus operasional
+  // Persediaan Akhir = Persediaan barang yang ada
+  //  + Transfer stock masuk (dari NUGrosir & numart lain)
+  //  + Retur penjualan
+  //  - Transfer stock balik
+  //  - Penjualan (HPP)
+  $persediaan_akhir =
+    $persediaan_awal
+    + $total_transfer_masuk
+    + $total_retur_penjualan
+    - $total_transfer_balik
+    - $hpp;
 }
 
 // Tambahkan persediaan akhir ke total aktiva (masuk ke Harta Lancar)
@@ -848,8 +1025,6 @@ if ($persediaan_akhir > 0) {
             </tbody>
           </table>
 
-
-
           <!-- HPP -->
           <table class="table table-bordered">
             <thead>
@@ -873,24 +1048,52 @@ if ($persediaan_akhir > 0) {
             </tbody>
           </table>
 
-          <!-- Pengeluaran -->
+          <!-- Pengeluaran: Beban Operasional & Beban Lain -->
           <table class="table table-bordered">
             <thead>
               <tr>
-                <th colspan="2" class="bg-primary text-white"><?= $cabang == 0 && !empty($transfer_detail) ? '3. BEBAN OPERASI' : '3. BEBAN OPERASI' ?></th>
+                <th colspan="2" class="bg-primary text-white">3. BEBAN</th>
               </tr>
             </thead>
             <tbody>
+              <tr class="table-secondary">
+                <td colspan="2"><strong>Beban Operasional</strong></td>
+              </tr>
               <?php
-              $pengeluaran_counter = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'];
               $counter_index = 0;
-              foreach ($pengeluaran as $p) : ?>
+              foreach ($pengeluaran_operasional as $p) : ?>
                 <tr>
-                  <td><?= $pengeluaran_counter[$counter_index] ?? '' ?>. <?= $p['kategori_nama'] ?></td>
+                  <td><?= labaAccrual_indexToLetter($counter_index) ?>. <?= htmlspecialchars($p['kategori_nama']) ?></td>
                   <td class="text-right"><?= rupiah($p['total']) ?></td>
                 </tr>
                 <?php $counter_index++; ?>
               <?php endforeach; ?>
+              <tr class="bg-light">
+                <td><em>Subtotal Beban Operasional</em></td>
+                <td class="text-right"><em><?= rupiah($total_beban_operasional) ?></em></td>
+              </tr>
+              <tr class="table-secondary">
+                <td colspan="2"><strong>Beban Lain</strong> <span class="text-muted font-weight-normal">(bunga bank, administrasi bank, pinjaman, dll.)</span></td>
+              </tr>
+              <?php
+              $counter_index = 0;
+              foreach ($pengeluaran_lain as $p) : ?>
+                <tr>
+                  <td><?= labaAccrual_indexToLetter($counter_index) ?>. <?= htmlspecialchars($p['kategori_nama']) ?></td>
+                  <td class="text-right"><?= rupiah($p['total']) ?></td>
+                </tr>
+                <?php $counter_index++; ?>
+              <?php endforeach; ?>
+              <?php if (empty($pengeluaran_lain)) : ?>
+                <tr>
+                  <td class="text-muted font-italic">Tidak ada transaksi beban lain pada periode ini.</td>
+                  <td class="text-right text-muted"><?= rupiah(0) ?></td>
+                </tr>
+              <?php endif; ?>
+              <tr class="bg-light">
+                <td><em>Subtotal Beban Lain</em></td>
+                <td class="text-right"><em><?= rupiah($total_beban_lain_finansial) ?></em></td>
+              </tr>
               <tr class="table-info">
                 <td><b>Total Biaya Pengeluaran</b></td>
                 <td class="text-right"><b><?= rupiah($total_pengeluaran) ?></b></td>
@@ -919,8 +1122,16 @@ if ($persediaan_akhir > 0) {
                 <td class="text-right"><?= rupiah($laba_kotor) ?></td>
               </tr>
               <tr>
-                <td>Total Biaya Pengeluaran</td>
-                <td class="text-right"><?= rupiah($total_pengeluaran) ?></td>
+                <td>Beban Operasional</td>
+                <td class="text-right"><?= rupiah($total_beban_operasional) ?></td>
+              </tr>
+              <tr>
+                <td>Beban Lain</td>
+                <td class="text-right"><?= rupiah($total_beban_lain_finansial) ?></td>
+              </tr>
+              <tr class="table-light">
+                <td><em>Total Biaya Pengeluaran</em></td>
+                <td class="text-right"><em><?= rupiah($total_pengeluaran) ?></em></td>
               </tr>
               <tr>
                 <td><b>Laba Bersih</b></td>
@@ -1004,11 +1215,40 @@ if ($persediaan_akhir > 0) {
                   </tr>
                 <?php endforeach; ?>
                 <tr class="table-info">
-                  <td><b>Total Pendapatan Lain</b></td>
+                  <td><b>Total Pendapatan Bagi Hasil</b></td>
                   <td class="text-right"><b><?= rupiah($pendapatan_lain_bagi_hasil) ?></b></td>
                 </tr>
               </tbody>
             </table>
+          <?php endif; ?>
+
+          <?php if ($total_pendapatan_lain != 0) : ?>
+          <!-- Pendapatan lain-lain (8-1400) ditempatkan setelah Pendapatan Bagi Hasil -->
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th colspan="2" class="bg-success text-white">
+                  PENDAPATAN LAIN-LAIN <span class="font-weight-normal">(akun <?= htmlspecialchars($pendapatan_lain_kode_akun_induk) ?>)</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              
+              <?php
+              $idx_pl = 0;
+              foreach ($pendapatan_lain as $pl) : ?>
+                <tr>
+                  <td><?= labaAccrual_indexToLetter($idx_pl) ?>. <?= htmlspecialchars($pl['kategori_nama']) ?></td>
+                  <td class="text-right"><?= rupiah($pl['total']) ?></td>
+                </tr>
+                <?php $idx_pl++; ?>
+              <?php endforeach; ?>
+              <tr class="table-info">
+                <td><b>Total Pendapatan Lain-lain</b></td>
+                <td class="text-right"><b><?= rupiah($total_pendapatan_lain) ?></b></td>
+              </tr>
+            </tbody>
+          </table>
           <?php endif; ?>
 
           <!-- Laba Rugi (Ringkasan) -->
@@ -1032,33 +1272,76 @@ if ($persediaan_akhir > 0) {
             </thead>
             <tbody>
               <tr>
-                <td>Total Pendapatan</td>
-                <td class="text-right"><?= rupiah($total_pendapatan) ?></td>
+                <td>Total Penjualan</td>
+                <td class="text-right"><?= rupiah($total_penjualan) ?></td>
               </tr>
               <tr>
                 <td>Total HPP</td>
                 <td class="text-right"><?= rupiah($hpp) ?></td>
               </tr>
               <tr>
-                <td>Laba Kotor</td>
+                <td>Laba Kotor <span class="text-muted font-weight-normal">(Penjualan − HPP)</span></td>
                 <td class="text-right"><?= rupiah($laba_kotor) ?></td>
               </tr>
+              <?php if ($total_pendapatan_lain != 0) : ?>
+                <tr>
+                  <td>Pendapatan Lain-lain <span class="text-muted font-weight-normal">(COA <?= htmlspecialchars($pendapatan_lain_kode_akun_induk) ?>)</span></td>
+                  <td class="text-right"><?= rupiah($total_pendapatan_lain) ?></td>
+                </tr>
+              <?php endif; ?>
+              <?php if ($total_pendapatan_lain != 0) : ?>
+                <tr class="table-light">
+                  <td>
+                    <em>Laba sebelum beban</em>
+                  </td>
+                  <td class="text-right"><em><?= rupiah($laba_sebelum_beban) ?></em></td>
+                </tr>
+              <?php endif; ?>
               <tr>
-                <td>Beban Operasi</td>
-                <td class="text-right"><?= rupiah($total_pengeluaran) ?></td>
+                <td>Beban Operasional</td>
+                <td class="text-right"><?= rupiah($total_beban_operasional) ?></td>
+              </tr>
+              <tr>
+                <td>Beban Lain</td>
+                <td class="text-right"><?= rupiah($total_beban_lain_finansial) ?></td>
+              </tr>
+              <tr class="table-light">
+                <td><em>Jumlah Beban</em></td>
+                <td class="text-right"><em><?= rupiah($total_pengeluaran) ?></em></td>
               </tr>
               <tr class="table-success">
-                <td><b>Laba Operasi</b></td>
+                <td><b>Laba Operasi</b> <span class="text-muted font-weight-normal">(Laba sebelum beban − jumlah beban)</span></td>
                 <td class="text-right">
                   <b class="<?= $laba_operasi >= 0 ? 'text-success' : 'text-danger' ?>">
                     <?= rupiah($laba_operasi) ?>
                   </b>
                 </td>
               </tr>
-              <tr>
-                <td>Pendapatan Bagi Hasil</td>
-                <td class="text-right"><?= rupiah($pendapatan_lain_bagi_hasil) ?></td>
-              </tr>
+              <?php if ((int) $cabang === 0) : ?>
+                <tr>
+                  <td>Pendapatan Bagi Hasil</td>
+                  <td class="text-right"><?= rupiah($pendapatan_lain_bagi_hasil) ?></td>
+                </tr>
+              <?php else : ?>
+                <?php if ($biaya_cadangan_pajak != 0) : ?>
+                  <tr>
+                    <td>Cadangan Pajak (5%)</td>
+                    <td class="text-right">(<?= rupiah($biaya_cadangan_pajak) ?>)</td>
+                  </tr>
+                <?php endif; ?>
+                <?php if ($bagi_hasil_nugrosir != 0) : ?>
+                  <tr>
+                    <td>Bagi Hasil ke Nugrosir</td>
+                    <td class="text-right">(<?= rupiah($bagi_hasil_nugrosir) ?>)</td>
+                  </tr>
+                <?php endif; ?>
+                <?php if ($bagi_hasil_pcnu != 0) : ?>
+                  <tr>
+                    <td>Bagi Hasil ke PCNU</td>
+                    <td class="text-right">(<?= rupiah($bagi_hasil_pcnu) ?>)</td>
+                  </tr>
+                <?php endif; ?>
+              <?php endif; ?>
               <?php if ($beban_lain > 0) : ?>
                 <tr>
                   <td>Beban Lain</td>
@@ -1440,6 +1723,19 @@ if ($persediaan_akhir > 0) {
   .table {
     font-size: 11px;
   }
+  /* Warna baris laporan (termasuk pemisah Beban Operasional / Beban Lain) agar print sama dengan layar */
+  .table-warning,
+  .table-info,
+  .table-success,
+  .table-secondary,
+  .table-light,
+  .bg-light,
+  .bg-secondary,
+  .bg-primary,
+  .bg-success {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 </style>
 
@@ -1464,7 +1760,27 @@ function exportExcel() {
     html += '<tr><td colspan="2" style="text-align:center;">Periode: <?= date('d M Y', strtotime($tanggal_awal)) ?> - <?= date('d M Y', strtotime($tanggal_akhir)) ?></td></tr>';
     html += '<tr><td colspan="2"></td></tr>';
     
-    // Get all tables
+    function laporanExcelRowBg(tr) {
+      if (!tr || !tr.classList) return '';
+      const cls = tr.className;
+      if (cls.indexOf('table-secondary') !== -1) return 'background-color:#e2e3e5;';
+      if (cls.indexOf('table-info') !== -1) return 'background-color:#d1ecf1;';
+      if (cls.indexOf('table-warning') !== -1) return 'background-color:#fff3cd;';
+      if (cls.indexOf('table-success') !== -1) return 'background-color:#d4edda;';
+      if (cls.indexOf('table-light') !== -1 || cls.indexOf('bg-light') !== -1) return 'background-color:#f8f9fa;';
+      return '';
+    }
+
+    function laporanExcelCellStyle(cell, tr) {
+      let s = laporanExcelRowBg(tr);
+      const trBold = tr && tr.classList && (tr.classList.contains('table-secondary') || tr.classList.contains('bg-primary'));
+      if (trBold || cell.querySelector('b, strong') || cell.tagName === 'TH') s += 'font-weight:bold;';
+      if (cell.querySelector('em') && !cell.querySelector('strong')) s += 'font-style:italic;';
+      if (cell.classList.contains('text-right')) s += 'text-align:right;';
+      return s;
+    }
+
+    // Get all tables (struktur sama dengan halaman: Beban Operasional + Beban Lain + subtotal)
     const tables = document.querySelectorAll('#laporan-content table');
     tables.forEach(table => {
       const rows = table.querySelectorAll('tr');
@@ -1474,8 +1790,7 @@ function exportExcel() {
         cells.forEach(cell => {
           const colspan = cell.getAttribute('colspan') || 1;
           const text = cell.innerText.trim().replace(/\n/g, ' ');
-          const isBold = cell.querySelector('b, strong') || cell.tagName === 'TH';
-          const style = isBold ? 'font-weight:bold;' : '';
+          const style = laporanExcelCellStyle(cell, row);
           html += '<td colspan="' + colspan + '" style="' + style + '">' + text + '</td>';
         });
         html += '</tr>';
@@ -1586,14 +1901,19 @@ function exportPDF() {
         .table-warning { background-color: #fff3cd !important; }
         .table-info { background-color: #d1ecf1 !important; }
         .table-success { background-color: #d4edda !important; }
+        .table-secondary { background-color: #e2e3e5 !important; }
+        .table-light { background-color: #f8f9fa !important; }
+        .bg-light { background-color: #f8f9fa !important; }
         .bg-secondary { background-color: #6c757d !important; color: white; }
         .bg-primary { background-color: #007bff !important; color: white; }
         .bg-success { background-color: #28a745 !important; color: white; }
         .text-success { color: #28a745 !important; }
         .text-danger { color: #dc3545 !important; }
+        .text-muted { color: #6c757d !important; }
         h2 { margin-bottom: 5px; }
         @media print {
-          .table-warning, .table-info, .table-success, .bg-secondary, .bg-primary, .bg-success {
+          .table-warning, .table-info, .table-success, .table-secondary, .table-light, .bg-light,
+          .bg-secondary, .bg-primary, .bg-success {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
